@@ -129,7 +129,7 @@ def parse_blame_porcelain(file_path, since_timestamp=None):
     """
     使用 git blame --line-porcelain 解析单个文件。
 
-    返回：[(author_mail, timestamp), ...] 列表，每个元素对应一行代码
+    返回：[(author_mail, timestamp, commit_hash), ...] 列表，每个元素对应一行代码
     """
     cmd = ['git', 'blame', '--line-porcelain', '--', file_path]
 
@@ -142,25 +142,33 @@ def parse_blame_porcelain(file_path, since_timestamp=None):
     lines = result.stdout.split('\n')
 
     authors = []
+    current_commit = None
     current_author = None
     current_timestamp = None
 
     for line in lines:
+        # 第一行是 commit hash
+        if not line.startswith(('\t', 'author', 'committer', 'summary',
+                               'boundary', 'filename', 'previous')):
+            parts = line.split()
+            if parts and len(parts[0]) == 40:  # SHA-1 hash 长度
+                current_commit = parts[0]
         # author-mail 格式：author-mail <email@example.com>
-        if line.startswith('author-mail '):
+        elif line.startswith('author-mail '):
             current_author = line[12:].strip()
         # author-time 格式：author-time 1234567890
         elif line.startswith('author-time '):
             current_timestamp = int(line[12:].strip())
         # 实际代码行以 TAB 开头
         elif line.startswith('\t'):
-            if current_author:
+            if current_author and current_commit:
                 # 应用日期过滤
                 if since_timestamp is None or current_timestamp >= since_timestamp:
-                    authors.append((current_author, current_timestamp))
+                    authors.append((current_author, current_timestamp, current_commit))
             # 重置状态
             current_author = None
             current_timestamp = None
+            # commit 可能被多行复用，不重置
 
     return authors
 
@@ -172,6 +180,39 @@ def is_bot(email):
     使用正则匹配 [bot] 标识，不做隐式合并或猜测。
     """
     return '[bot]' in email.lower()
+
+
+def get_commit_co_authors(commit_hash, cache={}):
+    """
+    获取 commit 的 co-authors。
+
+    解析 commit message 中的 Co-authored-by 标签。
+    使用缓存避免重复查询同一个 commit。
+    """
+    if commit_hash in cache:
+        return cache[commit_hash]
+
+    try:
+        result = subprocess.run(
+            ['git', 'show', '-s', '--format=%b', commit_hash],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+
+        co_authors = []
+        for line in result.stdout.split('\n'):
+            # Co-authored-by: Name <email@example.com>
+            if line.strip().startswith('Co-authored-by:'):
+                match = re.search(r'<(.+?)>', line)
+                if match:
+                    co_authors.append(f'<{match.group(1)}>')
+
+        cache[commit_hash] = co_authors
+        return co_authors
+    except subprocess.CalledProcessError:
+        cache[commit_hash] = []
+        return []
 
 
 def apply_mailmap(author_email):
@@ -275,6 +316,8 @@ def main():
     # ========== 执行 blame 统计 ==========
 
     author_lines = defaultdict(int)
+    claude_co_author_lines = 0  # Claude 作为 co-author 的行数
+    claude_emails = ['<noreply@anthropic.com>']  # Claude 的邮箱列表
     total_lines = 0
     processed_files = 0
 
@@ -286,9 +329,15 @@ def main():
 
         if authors:
             processed_files += 1
-            for author, _ in authors:
+            for author, _, commit_hash in authors:
                 author_lines[author] += 1
                 total_lines += 1
+
+                # 检查 Claude 是否是 co-author
+                if author not in claude_emails:
+                    co_authors = get_commit_co_authors(commit_hash)
+                    if any(email in claude_emails for email in co_authors):
+                        claude_co_author_lines += 1
 
     if total_lines == 0:
         print("警告：没有统计到任何代码行", file=sys.stderr)
@@ -353,6 +402,19 @@ def main():
     if bot_lines > 0:
         bot_percent = (bot_lines / total_lines * 100)
         print(f"Bot contributions: {bot_lines} lines ({bot_percent:.2f}%)")
+
+    # Claude Co-author 统计
+    if claude_co_author_lines > 0:
+        claude_direct = sum(lines for author, lines in author_lines.items()
+                          if author in claude_emails)
+        claude_total = claude_direct + claude_co_author_lines
+        claude_total_percent = (claude_total / total_lines * 100)
+        print("\n" + "-" * 72)
+        print("Claude 贡献详细统计:")
+        print(f"  作为 Author:      {claude_direct} lines ({claude_direct/total_lines*100:.2f}%)")
+        print(f"  作为 Co-author:   {claude_co_author_lines} lines ({claude_co_author_lines/total_lines*100:.2f}%)")
+        print(f"  总计:             {claude_total} lines ({claude_total_percent:.2f}%)")
+        print("-" * 72)
 
     print("=" * 72)
 
