@@ -94,6 +94,10 @@ def get_git_files(paths, excluded):
     获取当前 HEAD 中的所有文件。
 
     使用 git ls-files 确保只统计 Git 跟踪的文件。
+
+    参数：
+        paths: 要统计的路径列表
+        excluded: 要排除的路径模式列表（支持目录、文件名、通配符）
     """
     try:
         # 构建命令：git ls-files [paths...]
@@ -112,15 +116,36 @@ def get_git_files(paths, excluded):
         print(f"详情：{e.stderr}", file=sys.stderr)
         sys.exit(1)
 
-    # 过滤排除的目录
+    # 过滤排除的目录和文件
     filtered_files = []
     for f in files:
-        if not any(f.startswith(excl) for excl in excluded):
-            # 只统计文本文件（简单启发式：排除常见二进制扩展名）
-            if not f.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico',
-                              '.woff', '.woff2', '.ttf', '.eot', '.mp4', '.mp3',
-                              '.pdf', '.zip', '.tar', '.gz', '.bz2')):
-                filtered_files.append(f)
+        should_exclude = False
+
+        # 检查是否匹配排除规则
+        for excl in excluded:
+            # 支持多种排除模式：
+            # 1. 目录：node_modules/ -> 排除所有以 node_modules/ 开头的
+            # 2. 文件名：package-lock.json -> 排除所有路径中包含此文件名的
+            # 3. 路径：public/build/ -> 排除此路径下的所有文件
+            if excl.endswith('/'):
+                # 目录模式
+                if f.startswith(excl):
+                    should_exclude = True
+                    break
+            else:
+                # 文件名或路径模式
+                if f == excl or f.endswith('/' + excl) or f.startswith(excl + '/'):
+                    should_exclude = True
+                    break
+
+        if should_exclude:
+            continue
+
+        # 只统计文本文件（简单启发式：排除常见二进制扩展名）
+        if not f.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico',
+                          '.woff', '.woff2', '.ttf', '.eot', '.mp4', '.mp3',
+                          '.pdf', '.zip', '.tar', '.gz', '.bz2')):
+            filtered_files.append(f)
 
     return filtered_files
 
@@ -260,15 +285,28 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例：
+  # 基本用法
   python3 git_contribution_stats.py
+
+  # 按时间过滤
   python3 git_contribution_stats.py --since 2024-01-01
+
+  # 指定目录
   python3 git_contribution_stats.py --paths "app resources"
+
+  # 统计整个仓库，排除特定文件/目录
+  python3 git_contribution_stats.py --paths "." --exclude "node_modules/ vendor/ package-lock.json composer.lock"
+
+  # 完整用法（推荐）
+  python3 git_contribution_stats.py --paths "." --exclude "node_modules/ vendor/ storage/ public/build/ package-lock.json composer.lock"
         """
     )
     parser.add_argument('--since',
                        help='仅统计最后修改时间 >= since 的代码行 (YYYY-MM-DD)')
     parser.add_argument('--paths',
                        help='要统计的目录/文件，空格分隔')
+    parser.add_argument('--exclude',
+                       help='要排除的目录/文件，空格分隔（支持通配符）')
     parser.add_argument('--output',
                        default='contribution_stats.csv',
                        help='CSV 输出文件名（默认：contribution_stats.csv）')
@@ -288,6 +326,12 @@ def main():
 
     paths = args.paths.split() if args.paths else DEFAULT_PATHS
 
+    # 合并默认排除和用户指定排除
+    excluded = DEFAULT_EXCLUDED.copy()
+    if args.exclude:
+        user_excluded = args.exclude.split()
+        excluded.extend(user_excluded)
+
     # ========== 获取 Git 元信息 ==========
 
     try:
@@ -305,7 +349,7 @@ def main():
 
     # ========== 获取文件列表 ==========
 
-    files = get_git_files(paths, DEFAULT_EXCLUDED)
+    files = get_git_files(paths, excluded)
 
     if not files:
         print("警告：没有找到要统计的文件", file=sys.stderr)
