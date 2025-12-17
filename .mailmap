@@ -1,0 +1,5 @@
+# Git Mailmap - 合并同一作者的不同身份
+# 格式：正确名字 <正确邮箱> 错误名字 <错误邮箱>
+
+# Frank Lin 的多个身份合并为一个
+Frank Lin <github@linshuang.info> frankslin <frankslin@users.noreply.github.com>
