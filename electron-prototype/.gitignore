@@ -1,0 +1,17 @@
+# Node modules
+node_modules/
+
+# Electron build output
+dist/
+build/
+out/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env.local
