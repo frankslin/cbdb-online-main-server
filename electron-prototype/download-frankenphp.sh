@@ -67,6 +67,10 @@ fi
 # 添加执行权限
 chmod +x "$FRANKENPHP_BIN"
 
+# 移除 macOS 隔离属性（避免 Gatekeeper 阻止）
+echo "🔓 移除 macOS 隔离属性..."
+xattr -d com.apple.quarantine "$FRANKENPHP_BIN" 2>/dev/null || true
+
 # 验证下载
 if [ ! -f "$FRANKENPHP_BIN" ]; then
     echo "❌ 错误：下载失败"
