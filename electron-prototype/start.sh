@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # CBDB Online Desktop Prototype 启动脚本
-# 适用于 macOS
+# 使用 FrankenPHP（无需安装 PHP）
 
 set -e
 
@@ -23,57 +23,74 @@ if [ "$NODE_VERSION" -lt 18 ]; then
     echo "推荐升级到 18.x 或更高版本"
 fi
 
-# 检查 PHP
-if ! command -v php &> /dev/null; then
-    echo "❌ 错误：未找到 PHP"
-    echo "请先安装 PHP 8.1+ ："
-    echo "  brew install php@8.4"
-    exit 1
-fi
+echo "✅ Node.js $(node -v)"
 
-PHP_VERSION=$(php -v | head -n1 | cut -d' ' -f2 | cut -d'.' -f1,2)
-echo "✅ 找到 PHP $PHP_VERSION"
+# 检查 FrankenPHP
+FRANKENPHP_BIN="resources/php/frankenphp"
 
-# 检查 PHP 版本
-PHP_MAJOR=$(echo $PHP_VERSION | cut -d'.' -f1)
-PHP_MINOR=$(echo $PHP_VERSION | cut -d'.' -f2)
+if [ ! -f "$FRANKENPHP_BIN" ]; then
+    echo ""
+    echo "📦 FrankenPHP 未找到"
+    echo ""
+    echo "FrankenPHP 是一个包含 PHP 的独立二进制文件，"
+    echo "无需单独安装 PHP 即可运行应用。"
+    echo ""
+    read -p "是否现在下载 FrankenPHP？(Y/n) " -n 1 -r
+    echo
 
-if [ "$PHP_MAJOR" -lt 8 ] || ([ "$PHP_MAJOR" -eq 8 ] && [ "$PHP_MINOR" -lt 1 ]); then
-    echo "❌ 错误：PHP 版本过低（需要 8.1+，当前：$PHP_VERSION）"
-    echo "请升级 PHP："
-    echo "  brew upgrade php"
-    exit 1
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        # 运行下载脚本
+        ./download-frankenphp.sh
+    else
+        echo "❌ 取消启动"
+        echo "提示：稍后可以运行 ./download-frankenphp.sh 下载"
+        exit 1
+    fi
+else
+    # 显示 FrankenPHP 版本
+    FRANKENPHP_VERSION=$("$FRANKENPHP_BIN" version 2>/dev/null | head -n1 || echo "unknown")
+    echo "✅ FrankenPHP $FRANKENPHP_VERSION"
 fi
 
 # 检查 npm 依赖
 if [ ! -d "node_modules" ]; then
+    echo ""
     echo "📦 安装 Node.js 依赖..."
     npm install
 fi
 
 # 检查 Laravel 环境
 if [ ! -f "../.env" ]; then
+    echo ""
     echo "⚠️  警告：未找到 .env 文件"
     echo "正在创建..."
     cd ..
     cp .env.example .env
-    php artisan key:generate
+
+    # 使用 FrankenPHP 生成应用密钥
+    "$FRANKENPHP_BIN" artisan key:generate
+
     cd electron-prototype
 fi
 
 # 检查 Composer 依赖
 if [ ! -d "../vendor" ]; then
+    echo ""
     echo "📦 安装 Composer 依赖..."
     cd ..
-    composer install
+
+    # 使用 FrankenPHP 内置的 composer
+    "$FRANKENPHP_BIN" composer install
+
     cd electron-prototype
 fi
 
 # 清除 Laravel 缓存
+echo ""
 echo "🧹 清除缓存..."
 cd ..
-php artisan config:clear > /dev/null 2>&1 || true
-php artisan cache:clear > /dev/null 2>&1 || true
+"$FRANKENPHP_BIN" artisan config:clear > /dev/null 2>&1 || true
+"$FRANKENPHP_BIN" artisan cache:clear > /dev/null 2>&1 || true
 cd electron-prototype
 
 # 启动应用

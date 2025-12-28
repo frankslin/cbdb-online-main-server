@@ -26,9 +26,9 @@ app.on('ready', async () => {
     console.log('[App] Database:', dbInfo.path);
     console.log('[App] Size:', dbInfo.sizeFormatted);
 
-    // 2. 启动 PHP 服务器
+    // 2. 启动 FrankenPHP 服务器
     phpServer = new PHPServer({
-      phpBinary: getPHPBinaryPath(),
+      frankenphpBinary: getFrankenPHPBinaryPath(),
       laravelPath: getLaravelPath(),
       databasePath: databasePath,
     });
@@ -181,27 +181,25 @@ function createApplicationMenu() {
   Menu.setApplicationMenu(menu);
 }
 
-// 获取 PHP 二进制路径
-function getPHPBinaryPath() {
-  // macOS: 尝试使用系统 PHP 或 Homebrew PHP
-  const possiblePaths = [
-    '/opt/homebrew/bin/php',        // Homebrew (Apple Silicon)
-    '/usr/local/bin/php',            // Homebrew (Intel)
-    '/usr/bin/php',                  // 系统自带（已过时，不推荐）
-  ];
+// 获取 FrankenPHP 二进制路径
+function getFrankenPHPBinaryPath() {
+  // 使用打包在应用中的 FrankenPHP
+  const frankenphpPath = path.join(__dirname, '../resources/php/frankenphp');
 
-  // 检查哪个路径存在
   const fs = require('fs');
-  for (const phpPath of possiblePaths) {
-    if (fs.existsSync(phpPath)) {
-      console.log('[PHP] Using PHP binary:', phpPath);
-      return phpPath;
-    }
+  if (fs.existsSync(frankenphpPath)) {
+    console.log('[FrankenPHP] Using bundled binary:', frankenphpPath);
+    return frankenphpPath;
   }
 
-  // 如果都不存在，尝试使用 PATH 中的 php
-  console.log('[PHP] Using PHP from PATH');
-  return 'php';
+  // 如果本地文件不存在，提示用户下载
+  throw new Error(
+    'FrankenPHP 二进制文件未找到！\n\n' +
+    '请先运行下载脚本：\n' +
+    '  cd electron-prototype\n' +
+    '  ./download-frankenphp.sh\n\n' +
+    '或查看 QUICKSTART.md 获取帮助。'
+  );
 }
 
 // 获取 Laravel 项目路径

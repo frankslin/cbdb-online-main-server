@@ -15,11 +15,12 @@ CBDB Online 桌面版原型 - 专为 macOS 设计的独立桌面应用。
 ### 必需
 
 - **macOS**: 11.0 (Big Sur) 或更高版本
-- **PHP**: 8.1 或更高版本（推荐 8.4）
 - **Node.js**: 18.x 或更高版本
 - **SQLite 数据库**: CBDB 导出的 database.sqlite3 文件
 
-### 安装 PHP（如果未安装）
+> ✨ **无需安装 PHP**！应用使用 FrankenPHP（启动时自动下载）
+
+### 安装 Node.js（如果未安装）
 
 推荐使用 Homebrew 安装：
 
@@ -27,12 +28,12 @@ CBDB Online 桌面版原型 - 专为 macOS 设计的独立桌面应用。
 # 安装 Homebrew（如果未安装）
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# 安装 PHP 8.4
-brew install php@8.4
+# 安装 Node.js
+brew install node
 
 # 验证安装
-php --version
-# 应该显示：PHP 8.4.x
+node --version
+# 应该显示：v18.x 或更高版本
 ```
 
 ## 🚀 快速开始
