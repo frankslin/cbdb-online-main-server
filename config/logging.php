@@ -2,7 +2,8 @@
 
 return [
     // 桌面模式强制使用 null channel，避免只读文件系统错误
-    'default' => env('APP_MODE') === 'desktop' ? 'null' : env('LOG_CHANNEL', 'stack'),
+    // 使用 config('app.mode') 而非 env() 以支持配置缓存
+    'default' => config('app.mode') === 'desktop' ? 'null' : env('LOG_CHANNEL', 'stack'),
     'channels' => [
         'stack' => [
             'driver' => 'stack',

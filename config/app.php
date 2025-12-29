@@ -42,6 +42,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Application Mode
+    |--------------------------------------------------------------------------
+    |
+    | This value determines the "mode" your application is running in.
+    | Supported: "online" (default multi-user web mode), "desktop" (read-only Electron app)
+    | Desktop mode automatically disables logging and write operations.
+    |
+    */
+
+    'mode' => env('APP_MODE', 'online'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application URL
     |--------------------------------------------------------------------------
     |

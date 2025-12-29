@@ -104,12 +104,15 @@ if [ ! -d "../vendor" ]; then
     cd electron-prototype
 fi
 
-# 清除 Laravel 缓存
+# 清除 Laravel 缓存（确保配置更新生效）
 echo ""
 echo "🧹 清除缓存..."
 cd ..
-"$FRANKENPHP_BIN" artisan config:clear > /dev/null 2>&1 || true
-"$FRANKENPHP_BIN" artisan cache:clear > /dev/null 2>&1 || true
+"../electron-prototype/$FRANKENPHP_BIN" artisan config:clear > /dev/null 2>&1 || true
+"../electron-prototype/$FRANKENPHP_BIN" artisan cache:clear > /dev/null 2>&1 || true
+"../electron-prototype/$FRANKENPHP_BIN" artisan route:clear > /dev/null 2>&1 || true
+"../electron-prototype/$FRANKENPHP_BIN" artisan view:clear > /dev/null 2>&1 || true
+echo "✓ 缓存已清除"
 cd electron-prototype
 
 # 启动应用
