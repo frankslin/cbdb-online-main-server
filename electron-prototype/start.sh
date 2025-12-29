@@ -68,7 +68,7 @@ if [ ! -f "../.env" ]; then
     cp .env.example .env
 
     # 使用 FrankenPHP 生成应用密钥
-    "$FRANKENPHP_BIN" artisan key:generate
+    "electron-prototype/$FRANKENPHP_BIN" php-cli artisan key:generate
 
     # 配置桌面模式
     echo "" >> .env
@@ -99,7 +99,7 @@ if [ ! -d "../vendor" ]; then
     cd ..
 
     # 使用 FrankenPHP 内置的 composer
-    "$FRANKENPHP_BIN" composer install
+    "electron-prototype/$FRANKENPHP_BIN" composer install
 
     cd electron-prototype
 fi
@@ -108,10 +108,12 @@ fi
 echo ""
 echo "🧹 清除缓存..."
 cd ..
-"../electron-prototype/$FRANKENPHP_BIN" artisan config:clear > /dev/null 2>&1 || true
-"../electron-prototype/$FRANKENPHP_BIN" artisan cache:clear > /dev/null 2>&1 || true
-"../electron-prototype/$FRANKENPHP_BIN" artisan route:clear > /dev/null 2>&1 || true
-"../electron-prototype/$FRANKENPHP_BIN" artisan view:clear > /dev/null 2>&1 || true
+# FrankenPHP 需要用 php-cli 模式执行 artisan
+FRANKENPHP_PATH="electron-prototype/$FRANKENPHP_BIN"
+"$FRANKENPHP_PATH" php-cli artisan config:clear > /dev/null 2>&1 || true
+"$FRANKENPHP_PATH" php-cli artisan cache:clear > /dev/null 2>&1 || true
+"$FRANKENPHP_PATH" php-cli artisan route:clear > /dev/null 2>&1 || true
+"$FRANKENPHP_PATH" php-cli artisan view:clear > /dev/null 2>&1 || true
 echo "✓ 缓存已清除"
 cd electron-prototype
 
