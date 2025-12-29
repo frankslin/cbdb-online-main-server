@@ -38,6 +38,7 @@ class PHPServer {
           APP_ENV: 'desktop',
           APP_MODE: 'desktop',
           DESKTOP_READONLY: 'true',
+          LOG_CHANNEL: 'null',
         },
       });
 
@@ -116,6 +117,13 @@ class PHPServer {
 
       if (!envContent.includes('DESKTOP_READONLY=')) {
         envContent += '\nDESKTOP_READONLY=true';
+      }
+
+      // 禁用日志（避免只读文件系统错误）
+      if (!envContent.includes('LOG_CHANNEL=')) {
+        envContent += '\nLOG_CHANNEL=null';
+      } else {
+        envContent = envContent.replace(/LOG_CHANNEL=.*/, 'LOG_CHANNEL=null');
       }
 
       await fs.writeFile(envPath, envContent);

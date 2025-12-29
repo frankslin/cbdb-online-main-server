@@ -70,6 +70,25 @@ if [ ! -f "../.env" ]; then
     # 使用 FrankenPHP 生成应用密钥
     "$FRANKENPHP_BIN" artisan key:generate
 
+    # 配置桌面模式
+    echo "" >> .env
+    echo "# Electron Desktop Mode" >> .env
+    echo "APP_MODE=desktop" >> .env
+    echo "DESKTOP_READONLY=true" >> .env
+    echo "LOG_CHANNEL=null" >> .env
+
+    cd electron-prototype
+else
+    # 如果 .env 已存在，确保包含桌面模式配置
+    cd ..
+    if ! grep -q "APP_MODE=" .env; then
+        echo "" >> .env
+        echo "# Electron Desktop Mode" >> .env
+        echo "APP_MODE=desktop" >> .env
+        echo "DESKTOP_READONLY=true" >> .env
+        echo "LOG_CHANNEL=null" >> .env
+        echo "✓ 已添加桌面模式配置到 .env"
+    fi
     cd electron-prototype
 fi
 

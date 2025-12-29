@@ -3,7 +3,9 @@
 /public/hot
 /public/storage
 /storage/*.key
-/vendor
+# NOTE: vendor/ is committed for Electron desktop app (pre-packaged dependencies)
+# Uncomment the line below if you want to exclude it in web development mode
+# /vendor
 /.idea
 /.vagrant
 Homestead.json

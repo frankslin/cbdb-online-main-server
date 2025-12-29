@@ -56,12 +56,12 @@ FrankenPHP 是一个包含 PHP 的独立二进制文件，
 
 ✓ 检测到 CPU 架构：Apple Silicon (M1/M2/M3)
 
-📥 下载 FrankenPHP 1.3.5 (Apple Silicon)...
+📥 下载 FrankenPHP 1.11.1 (Apple Silicon)...
 ███████████████████████████ 100%
 
 ✅ 下载成功！
 
-FrankenPHP v1.3.5
+FrankenPHP v1.11.1
 ...
 
 📦 安装 Node.js 依赖...
@@ -145,8 +145,8 @@ cd electron-prototype
 
 - **Apple Silicon (M1/M2/M3)**：约 80MB
 - **Intel**：约 90MB
-- **来源**：GitHub官方发布（dunglas/frankenphp）
-- **版本**：1.3.5
+- **来源**：GitHub官方发布（php/frankenphp）
+- **版本**：1.11.1
 
 ### 文件位置
 
@@ -173,14 +173,14 @@ curl: Failed to connect to github.com
 3. 手动下载：
    ```bash
    # 访问下载页面
-   open https://github.com/dunglas/frankenphp/releases/tag/v1.3.5
+   open https://github.com/php/frankenphp/releases/tag/v1.11.1
 
    # 下载对应架构的文件：
-   # - Apple Silicon: frankenphp-mac-aarch64
+   # - Apple Silicon: frankenphp-mac-arm64
    # - Intel: frankenphp-mac-x86_64
 
    # 重命名并移动到正确位置
-   mv ~/Downloads/frankenphp-mac-aarch64 electron-prototype/resources/php/frankenphp
+   mv ~/Downloads/frankenphp-mac-arm64 electron-prototype/resources/php/frankenphp
    chmod +x electron-prototype/resources/php/frankenphp
    ```
 

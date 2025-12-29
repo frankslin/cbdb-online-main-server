@@ -25,8 +25,14 @@ fi
 echo "✓ 检测到 CPU 架构：$ARCH_NAME"
 
 # FrankenPHP 版本和下载地址
-FRANKENPHP_VERSION="1.3.5"
-FRANKENPHP_URL="https://github.com/dunglas/frankenphp/releases/download/v${FRANKENPHP_VERSION}/frankenphp-mac-${FRANKENPHP_ARCH}"
+FRANKENPHP_VERSION="1.11.1"
+# 修正文件名：arm64 而不是 aarch64
+if [ "$FRANKENPHP_ARCH" = "aarch64" ]; then
+    FRANKENPHP_FILE="frankenphp-mac-arm64"
+else
+    FRANKENPHP_FILE="frankenphp-mac-x86_64"
+fi
+FRANKENPHP_URL="https://github.com/php/frankenphp/releases/download/v${FRANKENPHP_VERSION}/${FRANKENPHP_FILE}"
 FRANKENPHP_DIR="resources/php"
 FRANKENPHP_BIN="$FRANKENPHP_DIR/frankenphp"
 
