@@ -77,6 +77,29 @@
                                 </div>
                             @endif
 
+                            {{-- ADDRESSES：dry-run 和 verify 選項 --}}
+                            @if($tableName == 'ADDRESSES')
+                                <div class="form-group">
+                                    <div class="checkbox">
+                                        <label>
+                                            <input type="checkbox" name="dry_run" value="1">
+                                            模擬運行（不實際修改資料）
+                                        </label>
+                                        <span class="help-block small">僅模擬處理流程，不會寫入資料庫</span>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <div class="checkbox">
+                                        <label>
+                                            <input type="checkbox" name="verify" value="1">
+                                            驗證特定示例案例
+                                        </label>
+                                        <span class="help-block small">驗證示例案例（如 Jiangle 100149）</span>
+                                    </div>
+                                </div>
+                            @endif
+
                             {{-- 姓名搜索索引：需要清空, id_from, id_to --}}
                             @if($tableName == 'CBDB__NAME_FTS')
                                 <div class="form-group">
@@ -152,6 +175,17 @@
                     <li><strong>增量模式：</strong>不勾選清空，僅更新指定 ID 範圍的記錄</li>
                     <li><strong>ID 範圍：</strong>可指定 c_personid 的起始和結束範圍，留空則處理全部</li>
                     <li>執行時間：全量重建約 5-10 分鐘，系統會顯示進度條並自動刷新狀態；增量更新視範圍而定</li>
+                </ul>
+
+                <h4>地址層級關係表 (ADDRESSES)</h4>
+                <ul>
+                    <li>基於 ADDR_CODES 和 ADDR_BELONGS_DATA 重建地址層級關係</li>
+                    <li>處理時間段分割和多級歸屬關係（最多 5 層）</li>
+                    <li>保留數據間隙以講述最連續的歷史故事</li>
+                    <li><strong>模擬運行：</strong>僅模擬處理流程，不會實際寫入資料庫，用於測試和驗證</li>
+                    <li><strong>驗證示例案例：</strong>執行完成後驗證特定示例案例（如 Jiangle 100149），顯示詳細結果</li>
+                    <li>執行時間：視地址數據量而定，通常需要數分鐘</li>
+                    <li>重建過程包含三個主要步驟：清理歸屬數據、構建時間段（填充間隙）、生成最終表數據</li>
                 </ul>
 
                 <p class="text-danger">

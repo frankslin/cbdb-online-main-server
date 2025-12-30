@@ -32,6 +32,14 @@ class CbdbTableMaintenanceController extends Controller {
             'icon' => 'search',
             'color' => 'green',
         ],
+        'ADDRESSES' => [
+            'name' => 'ADDRESSES',
+            'name_chn' => '地址層級關係表',
+            'description' => '基於 ADDR_CODES 和 ADDR_BELONGS_DATA 重建地址層級關係',
+            'command' => 'cbdb:regenerate-addresses-table',
+            'icon' => 'map-marker',
+            'color' => 'orange',
+        ],
     ];
 
     public function __construct() {
@@ -92,6 +100,14 @@ class CbdbTableMaintenanceController extends Controller {
             $idTo = $request->input('id_to');
         }
 
+        // 處理 ADDRESSES 特殊參數
+        $dryRun = false;
+        $verify = false;
+        if ($tableName == 'ADDRESSES') {
+            $dryRun = $request->has('dry_run') && $request->input('dry_run') == '1';
+            $verify = $request->has('verify') && $request->input('verify') == '1';
+        }
+
         // 移除執行時間限制
         set_time_limit(0);
         ini_set('memory_limit', '1024M');
@@ -109,6 +125,14 @@ class CbdbTableMaintenanceController extends Controller {
 
         if ($idTo && is_numeric($idTo)) {
             $params['--id-to'] = (int) $idTo;
+        }
+
+        if ($dryRun) {
+            $params['--dry-run'] = true;
+        }
+
+        if ($verify) {
+            $params['--verify'] = true;
         }
 
         if ($tableName === 'CBDB__NAME_FTS') {
@@ -133,15 +157,25 @@ class CbdbTableMaintenanceController extends Controller {
                 }
 
                 // 記錄成功操作
-                $this->logOperation('rebuild_success', $tableName, $count, [
+                $logData = [
                     'command' => $command,
                     'params' => $params,
                     'truncate' => $truncate,
-                    'id_from' => $idFrom,
-                    'id_to' => $idTo,
                     'exit_code' => $exitCode,
                     'output' => $outputStr,
-                ]);
+                ];
+
+                if ($tableName == 'CBDB__NAME_FTS') {
+                    $logData['id_from'] = $idFrom;
+                    $logData['id_to'] = $idTo;
+                }
+
+                if ($tableName == 'ADDRESSES') {
+                    $logData['dry_run'] = $dryRun ?? false;
+                    $logData['verify'] = $verify ?? false;
+                }
+
+                $this->logOperation('rebuild_success', $tableName, $count, $logData);
 
                 return response()->json([
                     'success' => true,
