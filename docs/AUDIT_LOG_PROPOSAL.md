@@ -54,11 +54,29 @@ This proposal only targets `/basicinformation` and its 12 subpages. No other mod
 ## Progress Tracker
 - [x] Create migration for `audit_log` (`database/migrations/2026_02_08_000000_create_audit_log_table.php`)
 - [x] Add AuditLog service (create)
+- [x] Add Admin UI for audit log browsing (`AdminAuditLogController` + view)
 - [~] Integrate `BIOG_MAIN` writes (currently split across `BiogMainRepository` and controller/API paths)
-- [x] Integrate `POSTED_TO_OFFICE_DATA` / `POSTED_TO_ADDR_DATA` writes
-- [~] Integrate remaining `/basicinformation` tables (core CRUD paths mostly covered, but quality gaps remain in some legacy flows)
-- [~] Ensure transactional writes for audit + data changes (partially done; several controller paths still write without single transaction boundary)
-- [~] Add SQLite migration/test coverage in tests (multiple feature tests now create `audit_log`; assertion coverage for audit behavior is still incomplete)
+- [x] Integrate `POSTED_TO_OFFICE_DATA` / `POSTED_TO_ADDR_DATA` writes (via `BiogMainRepository`, with transaction)
+- [~] Integrate remaining `/basicinformation` tables: **6/14 controllers integrated** (43% complete)
+  - [x] `BasicInformationController` (BIOG_MAIN) - ⚠️ No transaction
+  - [x] `BasicInformationAltnamesController` (ALTNAME_DATA) - ⚠️ No transaction
+  - [x] `BasicInformationAddressesController` (BIOG_ADDR_DATA) - ⚠️ No transaction
+  - [x] `BasicInformationTextsController` (BIOG_TEXT_DATA) - ⚠️ No transaction
+  - [x] `BasicInformationSourcesController` (BIOG_SOURCE_DATA) - ⚠️ No transaction
+  - [x] `BasicInformationEntriesController` (ENTRY_DATA) - ⚠️ No transaction
+  - [x] `BasicInformationOfficesController` (via Repository) - ✅ With transaction
+  - [ ] `BasicInformationAssocController` (ASSOC_DATA)
+  - [ ] `BasicInformationKinshipController` (KIN_DATA)
+  - [ ] `BasicInformationEventsController` (EVENTS_DATA)
+  - [ ] `BasicInformationStatusesController` (STATUS_DATA)
+  - [ ] `BasicInformationPossessionController` (POSSESSION_DATA)
+  - [ ] `BasicInformationSocialInstController` (BIOG_INST_DATA)
+  - [ ] `BasicInformationProposalController` (Approval flows)
+- [~] Ensure transactional writes for audit + data changes: **1/7 repositories** (14% complete)
+  - ⚠️ **Critical**: 6 controllers write audit logs without transaction wrapping
+  - ⚠️ Risk: Partial failure can leave data/operations/audit out of sync
+- [~] Add SQLite migration/test coverage: **11 feature tests create `audit_log` table**, but **assertion coverage incomplete**
+  - ⚠️ Most tests only create schema, do not assert audit record correctness
 
 ## Known Issues (Current Branch)
 - **Transaction consistency gaps**:
@@ -180,3 +198,12 @@ If history lookup becomes too slow or volume grows:
 ## Version
 - Version: 0.3
 - Date: 2026-02-11
+
+## Related Documents
+- **Evaluation Report**: `docs/AUDIT_LOG_EVALUATION.md` - Current implementation status assessment (2026-02-12)
+- **Action Plan**: `docs/AUDIT_LOG_ACTION_PLAN.md` - Detailed execution plan for completing implementation (2026-02-12)
+- **Progress Summary**:
+  - ✅ Core infrastructure: 100% complete
+  - 🟡 Controller integration: 43% complete (6/14)
+  - 🔴 Transaction consistency: 14% complete (1/7)
+  - 🟡 Test assertions: 40% complete (schema created, assertions missing)
