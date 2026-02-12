@@ -55,40 +55,43 @@ This proposal only targets `/basicinformation` and its 12 subpages. No other mod
 - [x] Create migration for `audit_log` (`database/migrations/2026_02_08_000000_create_audit_log_table.php`)
 - [x] Add AuditLog service (create)
 - [x] Add Admin UI for audit log browsing (`AdminAuditLogController` + view)
-- [~] Integrate `BIOG_MAIN` writes (currently split across `BiogMainRepository` and controller/API paths)
-- [x] Integrate `POSTED_TO_OFFICE_DATA` / `POSTED_TO_ADDR_DATA` writes (via `BiogMainRepository`, with transaction)
-- [~] Integrate remaining `/basicinformation` tables: **6/14 controllers integrated** (43% complete)
-  - [x] `BasicInformationController` (BIOG_MAIN) - ⚠️ No transaction
-  - [x] `BasicInformationAltnamesController` (ALTNAME_DATA) - ⚠️ No transaction
-  - [x] `BasicInformationAddressesController` (BIOG_ADDR_DATA) - ⚠️ No transaction
-  - [x] `BasicInformationTextsController` (BIOG_TEXT_DATA) - ⚠️ No transaction
-  - [x] `BasicInformationSourcesController` (BIOG_SOURCE_DATA) - ⚠️ No transaction
-  - [x] `BasicInformationEntriesController` (ENTRY_DATA) - ⚠️ No transaction
-  - [x] `BasicInformationOfficesController` (via Repository) - ✅ With transaction
-  - [ ] `BasicInformationAssocController` (ASSOC_DATA)
-  - [ ] `BasicInformationKinshipController` (KIN_DATA)
-  - [ ] `BasicInformationEventsController` (EVENTS_DATA)
-  - [ ] `BasicInformationStatusesController` (STATUS_DATA)
-  - [ ] `BasicInformationPossessionController` (POSSESSION_DATA)
-  - [ ] `BasicInformationSocialInstController` (BIOG_INST_DATA)
-  - [ ] `BasicInformationProposalController` (Approval flows)
-- [~] Ensure transactional writes for audit + data changes: **1/7 repositories** (14% complete)
-  - ⚠️ **Critical**: 6 controllers write audit logs without transaction wrapping
-  - ⚠️ Risk: Partial failure can leave data/operations/audit out of sync
+- [x] Integrate all `/basicinformation` tables: **14/14 tables integrated** (100% complete)
+  - [x] `BIOG_MAIN` (4 calls) - BasicInformationController + BiogMainRepository
+  - [x] `ALTNAME_DATA` (4 calls) - BasicInformationAltnamesController
+  - [x] `BIOG_ADDR_DATA` (4 calls) - BasicInformationAddressesController
+  - [x] `BIOG_TEXT_DATA` (4 calls) - BasicInformationTextsController
+  - [x] `BIOG_SOURCE_DATA` (4 calls) - BasicInformationSourcesController + BiogMainRepository
+  - [x] `ENTRY_DATA` (4 calls) - BasicInformationEntriesController
+  - [x] `POSTED_TO_OFFICE_DATA` (3 calls) - BiogMainRepository with ✅ transaction
+  - [x] `POSTED_TO_ADDR_DATA` (5 calls) - BiogMainRepository with ✅ transaction
+  - [x] `ASSOC_DATA` (3 calls) - BiogMainRepository (assocStoreById/UpdateById/DeleteById)
+  - [x] `KIN_DATA` (6 calls) - BiogMainRepository (kinshipStoreById/UpdateById/DeleteById)
+  - [x] `EVENTS_DATA` (3 calls) - BiogMainRepository (eventsStoreById/UpdateById/DeleteById)
+  - [x] `STATUS_DATA` (3 calls) - BiogMainRepository (statusStoreById/UpdateById/DeleteById)
+  - [x] `POSSESSION_DATA` (3 calls) - BiogMainRepository (possessionStoreById/UpdateById/DeleteById)
+  - [x] `BIOG_INST_DATA` (2 calls) - BiogMainRepository (socialInstStoreById/DeleteById, no Update)
+- [~] Ensure transactional writes for audit + data changes
+  - ✅ **Confirmed**: BiogMainRepository `office*ById` methods use `DB::transaction()`
+  - ⏳ **Need verification**: Other BiogMainRepository methods (assoc, kinship, events, status, possession, socialInst)
+  - ⏳ **Need verification**: 6 controllers (BasicInformation{Controller,Altnames,Addresses,Texts,Sources,Entries}Controller)
 - [~] Add SQLite migration/test coverage: **11 feature tests create `audit_log` table**, but **assertion coverage incomplete**
   - ⚠️ Most tests only create schema, do not assert audit record correctness
 
-## Known Issues (Current Branch)
+## Known Issues (Current Branch) - **Updated 2026-02-12**
 - **Transaction consistency gaps**:
-  - Multiple controller write paths still execute `data write -> operations write -> audit_log write` without wrapping all steps in one DB transaction.
-  - A partial failure can leave data/operations/audit out of sync.
-- **ALTNAME delete predicate risk**:
-  - Some delete paths use `LIKE` matching for `c_alt_name_chn`, which can affect multiple rows.
-  - Current audit logging on these paths records only one row snapshot, so audit may be incomplete if multiple rows are deleted.
+  - ✅ **Resolved for POSTED_TO**: `officeStoreById`, `officeUpdateById`, `officeDeleteById` use `DB::transaction()`
+  - ⏳ **Need verification**: Other BiogMainRepository methods and 6 controllers
+  - ⚠️ Risk: If not wrapped in transactions, partial failure can leave data/operations/audit out of sync
+- ~~**ALTNAME delete predicate risk**~~:
+  - ✅ **RESOLVED**: `BasicInformationAltnamesController::destroyQuery()` now uses exact matching (not LIKE)
+  - ✅ Queries single record with `first()` before deletion
+  - ✅ Audit log correctly records the deleted row
 - **Test coverage gaps**:
   - Several feature tests were updated to create `audit_log` schema only, but do not yet assert audit payload correctness (row count, operation type, PK serialization, before/after snapshot).
-- **Progress semantics caveat**:
-  - "Integrated" currently means "hooks added on major CRUD paths", not "fully transactional and fully asserted across all legacy entry points".
+- **Progress semantics update**:
+  - ~~"Integrated" previously meant "hooks added on major CRUD paths"~~
+  - **CORRECTED**: All 14 target tables now have complete audit log integration (INSERT/UPDATE/DELETE)
+  - Transaction consistency status varies by implementation location
 
 ## Planned Touchpoints
 - `app/Services/AuditLogService.php`
@@ -196,14 +199,27 @@ If history lookup becomes too slow or volume grows:
 - Consider partitioning in MariaDB for very large volumes.
 
 ## Version
-- Version: 0.3
-- Date: 2026-02-11
+- Version: 0.4 (Corrected)
+- Date: 2026-02-12
 
 ## Related Documents
-- **Evaluation Report**: `docs/AUDIT_LOG_EVALUATION.md` - Current implementation status assessment (2026-02-12)
-- **Action Plan**: `docs/AUDIT_LOG_ACTION_PLAN.md` - Detailed execution plan for completing implementation (2026-02-12)
-- **Progress Summary**:
-  - ✅ Core infrastructure: 100% complete
-  - 🟡 Controller integration: 43% complete (6/14)
-  - 🔴 Transaction consistency: 14% complete (1/7)
-  - 🟡 Test assertions: 40% complete (schema created, assertions missing)
+- ~~**Evaluation Report**: `docs/AUDIT_LOG_EVALUATION.md` - Initial assessment (2026-02-12, contains errors)~~
+- **Corrected Evaluation**: `docs/AUDIT_LOG_EVALUATION_CORRECTED.md` - Accurate implementation status (2026-02-12)
+- ~~**Action Plan**: `docs/AUDIT_LOG_ACTION_PLAN.md` - Based on initial (incorrect) assessment~~
+- **Visual Summary**: `docs/AUDIT_LOG_VISUAL_SUMMARY.md` - Dashboards and progress tracking
+- **Navigation Guide**: `docs/AUDIT_LOG_README.md` - Documentation overview
+
+## Progress Summary (Corrected 2026-02-12)
+- ✅ Core infrastructure: 100% complete
+- ✅ Table integration: 14/14 (100%) - **All target tables integrated**
+- ✅ ALTNAME delete fix: Completed - **No longer uses LIKE, queries exact record**
+- ⏳ Transaction consistency: Partially verified (POSTED_TO confirmed, others need check)
+- 🟡 Test assertions: 40% complete (schema created, assertions missing)
+
+## Correction Notice
+**Update 2026-02-12**: Initial evaluation significantly underestimated completion status due to incomplete search methodology. Actual status:
+- Table integration: 14/14 (100%), not 6/14 (43%)
+- ALTNAME delete issue: Already fixed, not存在
+- Repository integration: 8 tables in BiogMainRepository, not just 1
+
+See `AUDIT_LOG_EVALUATION_CORRECTED.md` for detailed analysis of corrections.
