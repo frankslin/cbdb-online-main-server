@@ -291,7 +291,7 @@ class BasicInformationAltnamesController extends Controller {
 
         // 直接儲存需要額外權限檢查
         if (!Auth::user()->canWriteDirectly()) {
-            flash('该用户没有权限，请联系管理员 @ '.Carbon::now(), 'error');
+            flash('该用户沒有權限，請聯繫管理員 @ '.Carbon::now(), 'error');
 
             return redirect()->back();
         }
@@ -405,7 +405,7 @@ class BasicInformationAltnamesController extends Controller {
         } else {
             // 使用 - 格式
             // 先用 - 分割，然後對每個部分調用 unionPKDef_decode
-            // （因為 - 被編碼為 (minus)，所以可以安全地用 - 分割）
+            // （因為 - 被編碼為 (minus) 所以可以安全地用 - 分割）
             $addr_l = explode("-", $alt);
             foreach ($addr_l as $key => $value) {
                 $addr_l[$key] = $this->biogMainRepository->unionPKDef_decode($value);
@@ -568,7 +568,7 @@ class BasicInformationAltnamesController extends Controller {
             $originalPk = [];
             foreach ($schema as $field) {
                 $value = $request->query($field);
-                if ($value !== null && $value !== '') {
+                if ($value !== null) {
                     $originalPk[$field] = $value;
                 }
             }
@@ -596,7 +596,7 @@ class BasicInformationAltnamesController extends Controller {
         $originalPk = [];
         foreach ($schema as $field) {
             $value = $request->query($field);
-            if ($value !== null && $value !== '') {
+            if ($value !== null) {
                 $originalPk[$field] = $value;
             }
         }

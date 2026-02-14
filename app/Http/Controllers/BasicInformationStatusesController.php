@@ -364,7 +364,7 @@ class BasicInformationStatusesController extends Controller {
             $originalPk = [];
             foreach ($schema as $field) {
                 $value = $request->query($field);
-                if ($value !== null && $value !== '') {
+                if ($value !== null) {
                     $originalPk[$field] = $value;
                 }
             }
