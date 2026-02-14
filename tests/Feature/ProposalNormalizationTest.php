@@ -4,8 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Operation;
 use App\Models\User;
-use App\Repositories\BiogMainRepository;
-use App\Repositories\OperationRepository;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
