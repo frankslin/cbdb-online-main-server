@@ -230,7 +230,7 @@ class BasicInformationTextsController extends Controller {
         }
 
         if (!Auth::user()->isActive()) {
-            flash('该用户没有权限，请聯繫管理員 @ '.Carbon::now(), 'error');
+            flash('该用户没有权限，请联系管理员 @ '.Carbon::now(), 'error');
 
             return redirect()->back();
         }
@@ -409,7 +409,7 @@ class BasicInformationTextsController extends Controller {
         }
 
         if (!Auth::user()->isActive()) {
-            flash('该用户没有权限，請聯繫管理員 @ '.Carbon::now(), 'error');
+            flash('该用户没有权限，请联系管理员 @ '.Carbon::now(), 'error');
 
             return redirect()->back();
         }

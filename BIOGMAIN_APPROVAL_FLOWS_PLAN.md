@@ -54,15 +54,15 @@
 | `ALTNAME_DATA` | 已實作 | 提案提交與審核流程可用（含複合主鍵處理）。 |
 | `BIOG_ADDR_DATA` | 已實作 | 提案提交與審核流程可用（含複合主鍵處理）。 |
 | `BIOG_TEXT_DATA` | 已實作 | 提案提交與審核流程可用（含複合主鍵處理）。 |
-| `STATUS_DATA` | 部分實作 | 已在 `BasicInformationProposalController` 配置資源，但頁面入口尚未全面接入。 |
-| `POSSESSION_DATA` | 部分實作 | 已在 `BasicInformationProposalController` 配置資源，但頁面入口尚未全面接入。 |
-| `POSTED_TO_OFFICE_DATA` | 未接入提案入口 | 目前未納入 basicinformation 提案提交流程。 |
-| `ASSOC_DATA` | 未接入提案入口 | 目前未納入 basicinformation 提案提交流程。 |
-| `ENTRY_DATA` | 未接入提案入口 | 目前未納入 basicinformation 提案提交流程。 |
-| `EVENTS_DATA` | 未接入提案入口 | 目前未納入 basicinformation 提案提交流程。 |
-| `KIN_DATA` | 未接入提案入口 | 目前未納入 basicinformation 提案提交流程。 |
-| `BIOG_INST_DATA` | 未接入提案入口 | 目前未納入 basicinformation 提案提交流程。 |
-| `SOURCES` | 未接入提案入口 | 目前未納入 basicinformation 提案提交流程。 |
+| `STATUS_DATA` | 已實作 | 提案提交與審核流程可用。 |
+| `POSSESSION_DATA` | 已實作 | 提案提交與審核流程可用。 |
+| `POSTED_TO_OFFICE_DATA` | 已實作 | 提案提交與審核流程可用。 |
+| `ASSOC_DATA` | 已實作 | 提案提交與審核流程可用。 |
+| `ENTRY_DATA` | 已實作 | 提案提交與審核流程可用。 |
+| `EVENTS_DATA` | 已實作 | 提案提交與審核流程可用。 |
+| `KIN_DATA` | 已實作 | 提案提交與審核流程可用。 |
+| `BIOG_INST_DATA` | 已實作 | 提案提交與審核流程可用。 |
+| `BIOG_SOURCE_DATA` | 已實作 | 提案提交與審核流程可用。 |
 
 ## 4. 測試覆蓋（已存在）
 
