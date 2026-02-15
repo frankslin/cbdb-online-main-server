@@ -546,6 +546,30 @@ class BasicInformationEntriesController extends Controller {
             return redirect()->back();
         }
 
+        // 數據預處理：處理 -999 轉為 0 並分割 c_inst_code
+        // 這些預處理必須在提案 (proposal) 和直接儲存 (save) 之前完成
+        $request->merge([
+            'c_entry_code' => ($request->input('c_entry_code') == -999) ? '0' : ($request->input('c_entry_code') ?? '0'),
+            'c_entry_addr_id' => ($request->input('c_entry_addr_id') == -999) ? '0' : ($request->input('c_entry_addr_id') ?? '0'),
+            'c_kin_code' => ($request->input('c_kin_code') == -999) ? '0' : ($request->input('c_kin_code') ?? '0'),
+            'c_assoc_code' => ($request->input('c_assoc_code') == -999) ? '0' : ($request->input('c_assoc_code') ?? '0'),
+            'c_source' => ($request->input('c_source') == -999) ? '0' : ($request->input('c_source') ?? '0'),
+        ]);
+
+        $temp = explode("-", $request->input('c_inst_code', ''));
+        $c_inst_code = $temp[0] ?: '0';
+        $c_inst_name_code = $temp[1] ?? '0';
+
+        if (empty($temp[1])) {
+            $c_inst_code = $c_inst_code ?: '0';
+            $c_inst_name_code = '0';
+        }
+
+        $request->merge([
+            'c_inst_code' => $c_inst_code,
+            'c_inst_name_code' => $c_inst_name_code,
+        ]);
+
         // 檢查動作類型
         $action = $request->input('action', 'save');
 
@@ -589,28 +613,6 @@ class BasicInformationEntriesController extends Controller {
         $data = Arr::except($data, ['_method', '_token']);
         $data = $this->toolsRepository->timestamp($data);
 
-        // 處理 -999 轉為 0
-        $data['c_entry_code'] = $data['c_entry_code'] == -999 ? '0' : $data['c_entry_code'];
-        $data['c_entry_addr_id'] = $data['c_entry_addr_id'] == -999 ? '0' : $data['c_entry_addr_id'];
-        $data['c_kin_code'] = $data['c_kin_code'] == -999 ? '0' : $data['c_kin_code'];
-        $data['c_assoc_code'] = $data['c_assoc_code'] == -999 ? '0' : $data['c_assoc_code'];
-        $data['c_inst_code'] = $data['c_inst_code'] == -999 ? '0' : $data['c_inst_code'];
-        $data['c_source'] = $data['c_source'] == -999 ? '0' : $data['c_source'];
-
-        // 處理 c_inst_code 分割
-        $temp = explode("-", $data['c_inst_code']);
-        $c_inst_code = $temp[0];
-        if (!empty($temp[1])) {
-            $c_inst_name_code = $temp[1];
-        } else {
-            $c_inst_code = '0';
-            $c_inst_name_code = '0';
-        }
-
-        if ($c_inst_name_code != '') {
-            $data['c_inst_code'] = $c_inst_code;
-            $data['c_inst_name_code'] = $c_inst_name_code;
-        }
 
         // 取得原始資料（使用原始 PK）
         $ori = DB::table('ENTRY_DATA')->where([

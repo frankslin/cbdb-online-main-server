@@ -116,6 +116,12 @@ class BasicInformationStatusesController extends Controller {
             return redirect()->back();
         }
 
+        // 數據預處理
+        $request->merge([
+            'c_status_code' => ($request->input('c_status_code') == -999) ? '0' : ($request->input('c_status_code') ?? '0'),
+            'c_source' => ($request->input('c_source') == -999) ? '0' : ($request->input('c_source') ?? '0'),
+        ]);
+
         // 檢查動作類型
         $action = $request->input('action', 'save');
 
@@ -354,6 +360,12 @@ class BasicInformationStatusesController extends Controller {
 
             return redirect()->back();
         }
+
+        // 數據預處理
+        $request->merge([
+            'c_status_code' => ($request->input('c_status_code') == -999) ? '0' : ($request->input('c_status_code') ?? '0'),
+            'c_source' => ($request->input('c_source') == -999) ? '0' : ($request->input('c_source') ?? '0'),
+        ]);
 
         // 檢查動作類型
         $action = $request->input('action', 'save');

@@ -58,7 +58,7 @@ class BasicInformationProposalController extends Controller {
         ],
         'possessions' => [
             'table' => 'POSSESSION_DATA',
-            'key_columns' => ['c_possession_record_id'],
+            'key_columns' => ['c_personid', 'c_possession_act_code', 'c_sequence'],
             'controller' => 'BasicInformationPossessionController',
             'route_prefix' => 'basicinformation.possession',
             'display_name' => '所有物',

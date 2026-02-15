@@ -115,6 +115,13 @@ class BasicInformationPossessionController extends Controller {
             return redirect()->back();
         }
 
+        // 數據預處理
+        $request->merge([
+            'c_source' => ($request->input('c_source') == -999) ? '0' : ($request->input('c_source') ?? '0'),
+            'c_measure_code' => ($request->input('c_measure_code') == -999) ? '0' : ($request->input('c_measure_code') ?? '0'),
+            'c_possession_act_code' => ($request->input('c_possession_act_code') == -999) ? '0' : ($request->input('c_possession_act_code') ?? '0'),
+        ]);
+
         // 檢查動作類型
         $action = $request->input('action', 'save');
 
@@ -300,6 +307,13 @@ class BasicInformationPossessionController extends Controller {
 
             return redirect()->back();
         }
+
+        // 數據預處理
+        $request->merge([
+            'c_source' => ($request->input('c_source') == -999) ? '0' : ($request->input('c_source') ?? '0'),
+            'c_measure_code' => ($request->input('c_measure_code') == -999) ? '0' : ($request->input('c_measure_code') ?? '0'),
+            'c_possession_act_code' => ($request->input('c_possession_act_code') == -999) ? '0' : ($request->input('c_possession_act_code') ?? '0'),
+        ]);
 
         // 檢查動作類型
         $action = $request->input('action', 'save');

@@ -129,6 +129,11 @@ class BasicInformationSourcesController extends Controller {
             return redirect()->back();
         }
 
+        // 數據預處理
+        $request->merge([
+            'c_textid' => ($request->input('c_textid') == -999) ? '0' : ($request->input('c_textid') ?? '0'),
+        ]);
+
         // 檢查動作類型
         $action = $request->input('action', 'save');
 
@@ -335,6 +340,11 @@ class BasicInformationSourcesController extends Controller {
 
             return redirect()->back();
         }
+
+        // 數據預處理
+        $request->merge([
+            'c_textid' => ($request->input('c_textid') == -999) ? '0' : ($request->input('c_textid') ?? '0'),
+        ]);
 
         // 檢查動作類型
         $action = $request->input('action', 'save');

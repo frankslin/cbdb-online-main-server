@@ -123,8 +123,13 @@ class BasicInformationSocialInstController extends Controller {
             return redirect()->back();
         }
 
-        // 數據預處理：分割 c_inst_code
+        // 數據預處理：處理 -999 轉為 0 並分割 c_inst_code
         // 這些預處理必須在提案 (proposal) 和直接儲存 (save) 之前完成
+        $request->merge([
+            'c_bi_role_code' => ($request->input('c_bi_role_code') == -999) ? '0' : ($request->input('c_bi_role_code') ?? '0'),
+            'c_source' => ($request->input('c_source') == -999) ? '0' : ($request->input('c_source') ?? '0'),
+        ]);
+
         $temp = explode("-", $request->input('c_inst_code', ''));
         $c_inst_code = $temp[0] ?: '0';
         $c_inst_name_code = $temp[1] ?? '0';
@@ -228,6 +233,12 @@ class BasicInformationSocialInstController extends Controller {
 
             return redirect()->back();
         }
+
+        // 數據預處理
+        $request->merge([
+            'c_bi_role_code' => ($request->input('c_bi_role_code') == -999) ? '0' : ($request->input('c_bi_role_code') ?? '0'),
+            'c_source' => ($request->input('c_source') == -999) ? '0' : ($request->input('c_source') ?? '0'),
+        ]);
 
         // 數據預處理：分割 c_inst_code
         $temp = explode("-", $request->input('c_inst_code', ''));

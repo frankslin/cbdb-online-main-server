@@ -163,6 +163,11 @@ class BasicInformationAssocController extends Controller {
         $action = $request->input('action', 'save');
 
         if ($action === 'proposal') {
+            // 處理年份缺省值，確保符合複合主鍵要求
+            // 注意：c_text_title 允許為空字串，不需要強制填充 [n/a]，以免破壞現有空值資料的匹配
+            if ($request->input('c_assoc_first_year') === null || $request->input('c_assoc_first_year') === '') {
+                $request->merge(['c_assoc_first_year' => '-9999']);
+            }
             // 轉發到提案控制器
             return app(\App\Http\Controllers\BasicInformationProposalController::class)
                 ->proposalStore($request, $id, 'assoc');
@@ -431,6 +436,11 @@ class BasicInformationAssocController extends Controller {
         $action = $request->input('action', 'save');
 
         if ($action === 'proposal') {
+            // 處理年份缺省值
+            if ($request->input('c_assoc_first_year') === null || $request->input('c_assoc_first_year') === '') {
+                $request->merge(['c_assoc_first_year' => '-9999']);
+            }
+
             // 提案模式需要從 URL 查詢字串取得原始 PK（而非表單提交的新值）
             $schema = CompositePrimaryKey::SCHEMAS['ASSOC_DATA'];
             $originalPk = [];

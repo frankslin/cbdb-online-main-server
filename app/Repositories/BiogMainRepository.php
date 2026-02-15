@@ -1727,10 +1727,6 @@ class BiogMainRepository {
         $old_c_assocship_pair2 = $old_c_assocship_pair['c_assoc_pair2'] ?? null;
 
         $data = Arr::except($data, ['_method', '_token', 'c_assocship_pair', 'c_kinship_pair', 'c_assoc_kinship_pair']);
-        #20260126「出處」缺省值製作，若「出處」為空，則自動填充為[n/a]，避免複合主鍵 ID 中出現 -- 導致解析問題。
-        if (empty($data['c_text_title'])) {
-            $data['c_text_title'] = '[n/a]';
-        }
         $data = (new ToolsRepository())->timestamp($data);
 
         $ori_data = $data;
@@ -1824,10 +1820,6 @@ class BiogMainRepository {
         #20250417「社會關係始年」缺省值製作，若「社會關係始年」為空，則自動填充為-9999。
         if ($data['c_assoc_first_year'] == '') {  #這個判斷式只會將「社會關係始年」為空白時，填充為-9999，如果使用者填寫0，會維持0的值而不更動。
             $data['c_assoc_first_year'] = '-9999';
-        }
-        #20260126「出處」缺省值製作，若「出處」為空，則自動填充為[n/a]，避免複合主鍵 ID 中出現 -- 導致解析問題。
-        if (empty($data['c_text_title'])) {
-            $data['c_text_title'] = '[n/a]';
         }
         $data = (new ToolsRepository())->timestamp($data, true);
 

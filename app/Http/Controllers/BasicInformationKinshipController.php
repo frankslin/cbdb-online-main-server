@@ -115,6 +115,13 @@ class BasicInformationKinshipController extends Controller {
             return redirect()->back();
         }
 
+        // 數據預處理
+        $request->merge([
+            'c_kin_code' => ($request->input('c_kin_code') == -999) ? '0' : ($request->input('c_kin_code') ?? '0'),
+            'c_kin_id' => ($request->input('c_kin_id') == -999) ? '0' : ($request->input('c_kin_id') ?? '0'),
+            'c_source' => ($request->input('c_source') == -999) ? '0' : ($request->input('c_source') ?? '0'),
+        ]);
+
         // 檢查動作類型
         $action = $request->input('action', 'save');
 
@@ -321,6 +328,13 @@ class BasicInformationKinshipController extends Controller {
 
             return redirect()->back();
         }
+
+        // 數據預處理
+        $request->merge([
+            'c_kin_code' => ($request->input('c_kin_code') == -999) ? '0' : ($request->input('c_kin_code') ?? '0'),
+            'c_kin_id' => ($request->input('c_kin_id') == -999) ? '0' : ($request->input('c_kin_id') ?? '0'),
+            'c_source' => ($request->input('c_source') == -999) ? '0' : ($request->input('c_source') ?? '0'),
+        ]);
 
         // 檢查動作類型
         $action = $request->input('action', 'save');
