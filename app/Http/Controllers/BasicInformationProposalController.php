@@ -37,14 +37,14 @@ class BasicInformationProposalController extends Controller {
         ],
         'addresses' => [
             'table' => 'BIOG_ADDR_DATA',
-            'key_columns' => ['c_personid', 'c_addr_id', 'c_sequence', 'c_addr_type'],
+            'key_columns' => ['c_personid', 'c_addr_id', 'c_addr_type', 'c_sequence'],
             'controller' => 'BasicInformationAddressesController',
             'route_prefix' => 'basicinformation.addresses',
             'display_name' => '地址',
         ],
         'texts' => [
             'table' => 'BIOG_TEXT_DATA',
-            'key_columns' => ['c_personid', 'c_textid', 'c_year_year', 'c_text_role_code'],
+            'key_columns' => ['c_personid', 'c_textid', 'c_role_id'],
             'controller' => 'BasicInformationTextsController',
             'route_prefix' => 'basicinformation.texts',
             'display_name' => '著述',
@@ -58,7 +58,7 @@ class BasicInformationProposalController extends Controller {
         ],
         'possessions' => [
             'table' => 'POSSESSION_DATA',
-            'key_columns' => ['c_personid', 'c_possession_act_code', 'c_sequence'],
+            'key_columns' => ['c_possession_record_id'],
             'controller' => 'BasicInformationPossessionController',
             'route_prefix' => 'basicinformation.possession',
             'display_name' => '所有物',
@@ -139,6 +139,7 @@ class BasicInformationProposalController extends Controller {
         // 提取表單數據
         $payload = $this->extractFormData($request);
         $payload['c_personid'] = $personid;
+        $payload = $this->assignSingleNumericPrimaryKeyIfNeeded($table, $keyColumns, $payload);
 
         // 驗證主鍵完整性
         if (!$this->hasPrimaryKeyValues($keyColumns, $payload)) {
@@ -513,5 +514,35 @@ class BasicInformationProposalController extends Controller {
         if (!Auth::user()->canWriteDirectly()) {
             abort(403, '该用户没有权限，请联系管理员');
         }
+    }
+
+    protected function assignSingleNumericPrimaryKeyIfNeeded(string $table, array $keyColumns, array $payload): array {
+        if (count($keyColumns) !== 1) {
+            return $payload;
+        }
+
+        $keyColumn = $keyColumns[0];
+        $keyValue = $payload[$keyColumn] ?? null;
+        if ($keyValue !== null && $keyValue !== '') {
+            return $payload;
+        }
+
+        try {
+            $max = DB::table($table)->max($keyColumn);
+        } catch (\Throwable $e) {
+            return $payload;
+        }
+
+        if ($max === null) {
+            $payload[$keyColumn] = 1;
+
+            return $payload;
+        }
+
+        if (is_numeric($max)) {
+            $payload[$keyColumn] = (int) $max + 1;
+        }
+
+        return $payload;
     }
 }
