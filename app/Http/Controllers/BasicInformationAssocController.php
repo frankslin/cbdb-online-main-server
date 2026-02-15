@@ -168,6 +168,7 @@ class BasicInformationAssocController extends Controller {
             if ($request->input('c_assoc_first_year') === null || $request->input('c_assoc_first_year') === '') {
                 $request->merge(['c_assoc_first_year' => '-9999']);
             }
+
             // 轉發到提案控制器
             return app(\App\Http\Controllers\BasicInformationProposalController::class)
                 ->proposalStore($request, $id, 'assoc');
