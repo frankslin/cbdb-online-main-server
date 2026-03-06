@@ -210,7 +210,8 @@ class OperationsProposalController extends Controller {
             DB::table($table)->where($conditions)->update($updatePayload);
         }
 
-        $readConditions = $this->buildKeyConditions($keyColumns, array_merge($original, $data));
+        $readKeyRow = $this->resolveReadbackKeyRow($keyColumns, $original, $updatePayload);
+        $readConditions = $this->buildKeyConditions($keyColumns, $readKeyRow);
         $row = DB::table($table)->where($readConditions)->first();
         if (!$row) {
             throw new \RuntimeException('更新後讀取資料失敗。');
@@ -238,6 +239,18 @@ class OperationsProposalController extends Controller {
         }
 
         return $updatePayload;
+    }
+
+    protected function resolveReadbackKeyRow(array $keyColumns, array $original, array $updatePayload): array {
+        $row = $original;
+
+        foreach ($keyColumns as $column) {
+            if (array_key_exists($column, $updatePayload)) {
+                $row[$column] = $updatePayload[$column];
+            }
+        }
+
+        return $row;
     }
 
     protected function keyValuesMatch($left, $right): bool {
