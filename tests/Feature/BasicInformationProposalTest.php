@@ -776,7 +776,7 @@ class BasicInformationProposalTest extends TestCase {
     }
 
     #[Test]
-    public function testApproveUpdateRejectsPrimaryKeyChange() {
+    public function testApproveUpdateAllowsPrimaryKeyChange() {
         DB::table('ALTNAME_DATA')->insert([
             'c_personid' => 1,
             'c_sequence' => 1,
@@ -813,11 +813,16 @@ class BasicInformationProposalTest extends TestCase {
         $response->assertRedirect();
         $flash = session('flash_notification', collect())->toArray();
         $this->assertNotEmpty($flash);
-        $this->assertStringContainsString('提案不可修改主鍵欄位', $flash[0]['message'] ?? '');
+        $this->assertStringContainsString('提案已核准並套用至資料表', $flash[0]['message'] ?? '');
+
+        $this->assertDatabaseMissing('ALTNAME_DATA', [
+            'c_personid' => 1,
+            'c_alt_name_chn' => '不可改主鍵',
+        ]);
 
         $this->assertDatabaseHas('ALTNAME_DATA', [
             'c_personid' => 1,
-            'c_alt_name_chn' => '不可改主鍵',
+            'c_alt_name_chn' => '新主鍵值',
         ]);
     }
 

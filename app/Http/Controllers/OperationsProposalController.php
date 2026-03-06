@@ -205,21 +205,13 @@ class OperationsProposalController extends Controller {
             throw new \RuntimeException('資料不存在或已被刪除，無法更新。');
         }
 
-        foreach ($keyColumns as $column) {
-            if (!array_key_exists($column, $original)) {
-                continue;
-            }
-            if (array_key_exists($column, $data) && !$this->keyValuesMatch($data[$column], $original[$column])) {
-                throw new \RuntimeException('提案不可修改主鍵欄位。');
-            }
-        }
-
-        $updatePayload = array_diff_key($data, array_flip($keyColumns));
+        $updatePayload = $this->buildUpdatePayload($data, $keyColumns, $original);
         if (!empty($updatePayload)) {
             DB::table($table)->where($conditions)->update($updatePayload);
         }
 
-        $row = DB::table($table)->where($conditions)->first();
+        $readConditions = $this->buildKeyConditions($keyColumns, array_merge($original, $data));
+        $row = DB::table($table)->where($readConditions)->first();
         if (!$row) {
             throw new \RuntimeException('更新後讀取資料失敗。');
         }
@@ -230,6 +222,22 @@ class OperationsProposalController extends Controller {
         }
 
         return $this->convertRowToArray($row);
+    }
+
+    protected function buildUpdatePayload(array $data, array $keyColumns, array $original): array {
+        $updatePayload = array_diff_key($data, array_flip($keyColumns));
+
+        foreach ($keyColumns as $column) {
+            if (!array_key_exists($column, $original) || !array_key_exists($column, $data)) {
+                continue;
+            }
+
+            if (!$this->keyValuesMatch($data[$column], $original[$column])) {
+                $updatePayload[$column] = $data[$column];
+            }
+        }
+
+        return $updatePayload;
     }
 
     protected function keyValuesMatch($left, $right): bool {
