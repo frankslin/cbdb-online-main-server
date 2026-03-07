@@ -135,6 +135,12 @@ class BasicInformationProposalTest extends TestCase {
     }
 
     protected function tearDown(): void {
+        Schema::dropIfExists('EVENTS_ADDR');
+        Schema::dropIfExists('EVENTS_DATA');
+        Schema::dropIfExists('POSTED_TO_ADDR_DATA');
+        Schema::dropIfExists('POSTED_TO_OFFICE_DATA');
+        Schema::dropIfExists('POSTING_DATA');
+        Schema::dropIfExists('ASSOC_DATA');
         Schema::dropIfExists('KIN_DATA');
         Schema::dropIfExists('KINSHIP_CODES');
         Schema::dropIfExists('POSSESSION_DATA');
@@ -200,6 +206,98 @@ class BasicInformationProposalTest extends TestCase {
             $table->string('c_created_date')->nullable();
             $table->string('c_modified_by')->nullable();
             $table->string('c_modified_date')->nullable();
+        });
+    }
+
+    protected function createAssocTables(): void {
+        Schema::dropIfExists('ASSOC_DATA');
+
+        Schema::create('ASSOC_DATA', function (Blueprint $table) {
+            $table->integer('c_personid');
+            $table->integer('c_assoc_code');
+            $table->integer('c_assoc_id');
+            $table->integer('c_kin_code')->default(0);
+            $table->integer('c_kin_id')->default(0);
+            $table->integer('c_assoc_kin_code')->default(0);
+            $table->integer('c_assoc_kin_id')->default(0);
+            $table->string('c_text_title')->default('');
+            $table->string('c_assoc_first_year')->default('-9999');
+            $table->integer('c_inst_code')->default(0);
+            $table->integer('c_inst_name_code')->default(0);
+            $table->text('c_notes')->nullable();
+            $table->string('c_created_by')->nullable();
+            $table->string('c_created_date')->nullable();
+            $table->string('c_modified_by')->nullable();
+            $table->string('c_modified_date')->nullable();
+        });
+    }
+
+    protected function createOfficeTables(): void {
+        Schema::dropIfExists('POSTED_TO_ADDR_DATA');
+        Schema::dropIfExists('POSTED_TO_OFFICE_DATA');
+        Schema::dropIfExists('POSTING_DATA');
+
+        Schema::create('POSTING_DATA', function (Blueprint $table) {
+            $table->integer('c_personid');
+            $table->integer('c_posting_id');
+            $table->string('c_created_by')->nullable();
+            $table->string('c_created_date')->nullable();
+            $table->string('c_modified_by')->nullable();
+            $table->string('c_modified_date')->nullable();
+        });
+
+        Schema::create('POSTED_TO_OFFICE_DATA', function (Blueprint $table) {
+            $table->integer('c_personid');
+            $table->integer('c_posting_id');
+            $table->integer('c_office_id');
+            $table->integer('c_sequence')->default(1);
+            $table->integer('c_source')->default(0);
+            $table->string('c_pages')->nullable();
+            $table->integer('c_fy_intercalary')->default(0);
+            $table->integer('c_ly_intercalary')->default(0);
+            $table->integer('c_inst_code')->default(0);
+            $table->integer('c_inst_name_code')->default(0);
+            $table->text('c_notes')->nullable();
+            $table->string('c_created_by')->nullable();
+            $table->string('c_created_date')->nullable();
+            $table->string('c_modified_by')->nullable();
+            $table->string('c_modified_date')->nullable();
+        });
+
+        Schema::create('POSTED_TO_ADDR_DATA', function (Blueprint $table) {
+            $table->integer('c_personid');
+            $table->integer('c_posting_id');
+            $table->integer('c_office_id');
+            $table->integer('c_addr_id');
+            $table->string('c_created_by')->nullable();
+            $table->string('c_created_date')->nullable();
+            $table->string('c_modified_by')->nullable();
+            $table->string('c_modified_date')->nullable();
+        });
+    }
+
+    protected function createEventTables(): void {
+        Schema::dropIfExists('EVENTS_ADDR');
+        Schema::dropIfExists('EVENTS_DATA');
+
+        Schema::create('EVENTS_DATA', function (Blueprint $table) {
+            $table->integer('c_personid');
+            $table->integer('c_sequence');
+            $table->integer('c_event_code');
+            $table->integer('c_source')->default(0);
+            $table->integer('c_intercalary')->default(0);
+            $table->text('c_notes')->nullable();
+            $table->string('c_created_by')->nullable();
+            $table->string('c_created_date')->nullable();
+            $table->string('c_modified_by')->nullable();
+            $table->string('c_modified_date')->nullable();
+        });
+
+        Schema::create('EVENTS_ADDR', function (Blueprint $table) {
+            $table->integer('c_personid');
+            $table->integer('c_sequence');
+            $table->integer('c_event_code');
+            $table->integer('c_addr_id');
         });
     }
 
@@ -766,6 +864,190 @@ class BasicInformationProposalTest extends TestCase {
             'resource' => 'KIN_DATA',
             'op_type' => Operation::TYPE_UPDATE,
             'c_personid' => 1,
+        ]);
+    }
+
+    #[Test]
+    public function testApproveAssocCreateProposalUsesDirectWorkflowAndCreatesMirrorRow() {
+        $this->createAssocTables();
+        $this->app->instance(BiogMainRepository::class, new BiogMainRepository());
+
+        $admin = $this->makeAdmin();
+        $this->actingAs($admin);
+
+        $operation = new Operation();
+        $operation->user_id = 100;
+        $operation->c_personid = 1;
+        $operation->op_type = Operation::TYPE_PROPOSAL_CREATE;
+        $operation->resource = 'ASSOC_DATA';
+        $operation->resource_id = 'pending-assoc';
+        $operation->resource_data = json_encode([
+            'c_personid' => 1,
+            'c_assoc_code' => 10,
+            'c_assoc_id' => 2,
+            'c_kin_code' => 0,
+            'c_kin_id' => 0,
+            'c_assoc_kin_code' => 0,
+            'c_assoc_kin_id' => 0,
+            'c_text_title' => '',
+            'c_assoc_first_year' => '-9999',
+            'c_inst_code' => 0,
+            'c_inst_name_code' => 0,
+            'c_notes' => '社會關係提案',
+            'c_assocship_pair' => 20,
+            'c_kinship_pair' => 301,
+            'c_assoc_kinship_pair' => 302,
+            '__key_columns' => ['c_personid', 'c_assoc_code', 'c_assoc_id', 'c_kin_code', 'c_kin_id', 'c_assoc_kin_code', 'c_assoc_kin_id', 'c_text_title', 'c_assoc_first_year'],
+            '__review_status' => 'pending',
+        ], JSON_UNESCAPED_UNICODE);
+        $operation->save();
+
+        $response = $this->post(route('operations.proposals.approve', $operation), [
+            'review_comment' => '同意建立社會關係',
+        ]);
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('ASSOC_DATA', [
+            'c_personid' => 1,
+            'c_assoc_code' => 10,
+            'c_assoc_id' => 2,
+            'c_notes' => '社會關係提案',
+        ]);
+
+        $this->assertDatabaseHas('ASSOC_DATA', [
+            'c_personid' => 2,
+            'c_assoc_code' => 20,
+            'c_assoc_id' => 1,
+            'c_kin_code' => 301,
+            'c_assoc_kin_code' => 302,
+        ]);
+    }
+
+    #[Test]
+    public function testApproveOfficeCreateProposalUsesDirectWorkflowAndCreatesAddressRows() {
+        $this->createOfficeTables();
+        $this->app->instance(BiogMainRepository::class, new BiogMainRepository());
+
+        $admin = $this->makeAdmin();
+        $this->actingAs($admin);
+
+        DB::table('POSTING_DATA')->insert([
+            'c_personid' => 99,
+            'c_posting_id' => 7,
+            'c_created_by' => 'seed',
+            'c_created_date' => '2025-01-01 00:00:00',
+        ]);
+
+        $operation = new Operation();
+        $operation->user_id = 100;
+        $operation->c_personid = 1;
+        $operation->op_type = Operation::TYPE_PROPOSAL_CREATE;
+        $operation->resource = 'POSTED_TO_OFFICE_DATA';
+        $operation->resource_id = 'pending-office';
+        $operation->resource_data = json_encode([
+            'c_personid' => 1,
+            'c_office_id' => 888,
+            'c_sequence' => 1,
+            'c_source' => 123,
+            'c_pages' => 'p.1',
+            'c_fy_intercalary' => 0,
+            'c_ly_intercalary' => 0,
+            'c_inst_code' => 0,
+            'c_inst_name_code' => 0,
+            'c_notes' => '官名提案',
+            'c_addr' => [10, 11],
+            '__key_columns' => ['c_office_id', 'c_posting_id'],
+            '__review_status' => 'pending',
+        ], JSON_UNESCAPED_UNICODE);
+        $operation->save();
+
+        $response = $this->post(route('operations.proposals.approve', $operation), [
+            'review_comment' => '同意建立官名',
+        ]);
+
+        $response->assertRedirect();
+
+        $officeRow = DB::table('POSTED_TO_OFFICE_DATA')
+            ->where('c_personid', 1)
+            ->where('c_office_id', 888)
+            ->first();
+
+        $this->assertNotNull($officeRow);
+        $this->assertSame('官名提案', $officeRow->c_notes);
+
+        $this->assertDatabaseHas('POSTING_DATA', [
+            'c_personid' => 1,
+            'c_posting_id' => $officeRow->c_posting_id,
+        ]);
+
+        $this->assertDatabaseHas('POSTED_TO_ADDR_DATA', [
+            'c_personid' => 1,
+            'c_posting_id' => $officeRow->c_posting_id,
+            'c_office_id' => 888,
+            'c_addr_id' => 10,
+        ]);
+
+        $this->assertDatabaseHas('POSTED_TO_ADDR_DATA', [
+            'c_personid' => 1,
+            'c_posting_id' => $officeRow->c_posting_id,
+            'c_office_id' => 888,
+            'c_addr_id' => 11,
+        ]);
+    }
+
+    #[Test]
+    public function testApproveEventCreateProposalUsesDirectWorkflowAndCreatesEventAddrRows() {
+        $this->createEventTables();
+        $this->app->instance(BiogMainRepository::class, new BiogMainRepository());
+
+        $admin = $this->makeAdmin();
+        $this->actingAs($admin);
+
+        $operation = new Operation();
+        $operation->user_id = 100;
+        $operation->c_personid = 1;
+        $operation->op_type = Operation::TYPE_PROPOSAL_CREATE;
+        $operation->resource = 'EVENTS_DATA';
+        $operation->resource_id = 'pending-event';
+        $operation->resource_data = json_encode([
+            'c_personid' => 1,
+            'c_sequence' => 5,
+            'c_event_code' => 99,
+            'c_source' => 123,
+            'c_intercalary' => 0,
+            'c_notes' => '事件提案',
+            'c_addr_id' => [20, 21],
+            '__key_columns' => ['c_personid', 'c_sequence', 'c_event_code'],
+            '__review_status' => 'pending',
+        ], JSON_UNESCAPED_UNICODE);
+        $operation->save();
+
+        $response = $this->post(route('operations.proposals.approve', $operation), [
+            'review_comment' => '同意建立事件',
+        ]);
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('EVENTS_DATA', [
+            'c_personid' => 1,
+            'c_sequence' => 5,
+            'c_event_code' => 99,
+            'c_notes' => '事件提案',
+        ]);
+
+        $this->assertDatabaseHas('EVENTS_ADDR', [
+            'c_personid' => 1,
+            'c_sequence' => 5,
+            'c_event_code' => 99,
+            'c_addr_id' => 20,
+        ]);
+
+        $this->assertDatabaseHas('EVENTS_ADDR', [
+            'c_personid' => 1,
+            'c_sequence' => 5,
+            'c_event_code' => 99,
+            'c_addr_id' => 21,
         ]);
     }
 

@@ -7,6 +7,7 @@ use App\Repositories\BiogMainRepository;
 use App\Repositories\OperationRepository;
 use App\Services\AuditLogService;
 use App\Services\NameSearchIndexService;
+use App\Support\CompositePrimaryKey;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -195,6 +196,18 @@ class OperationsProposalController extends Controller {
             return [$this->applyKinshipProposal($operation, $data, $original, $auxiliaryPayload), true];
         }
 
+        if ($table === 'ASSOC_DATA') {
+            return [$this->applyAssocProposal($operation, $data, $original, $auxiliaryPayload), true];
+        }
+
+        if ($table === 'POSTED_TO_OFFICE_DATA') {
+            return [$this->applyOfficeProposal($operation, $data, $original, $auxiliaryPayload), true];
+        }
+
+        if ($table === 'EVENTS_DATA') {
+            return [$this->applyEventProposal($operation, $data, $original, $auxiliaryPayload), true];
+        }
+
         if ((int) $operation->op_type === Operation::TYPE_PROPOSAL_CREATE) {
             return [$this->applyCreateProposal($table, $data, $keyColumns), false];
         }
@@ -240,6 +253,129 @@ class OperationsProposalController extends Controller {
         return $result;
     }
 
+    protected function applyAssocProposal(
+        Operation $operation,
+        array $data,
+        array $original,
+        array $auxiliaryPayload
+    ): array {
+        $personId = (int) ($operation->c_personid ?? $data['c_personid'] ?? $original['c_personid'] ?? 0);
+        $request = Request::create('/', 'POST', array_merge($data, $auxiliaryPayload));
+
+        if ((int) $operation->op_type === Operation::TYPE_PROPOSAL_CREATE) {
+            $result = $this->biogMainRepository->assocStoreById($request, $personId);
+
+            return $this->fetchAppliedRow('ASSOC_DATA', [
+                'c_personid' => $result['c_personid'] ?? $personId,
+                'c_assoc_code' => $result['c_assoc_code'] ?? null,
+                'c_assoc_id' => $result['c_assoc_id'] ?? null,
+                'c_kin_code' => $result['c_kin_code'] ?? null,
+                'c_kin_id' => $result['c_kin_id'] ?? null,
+                'c_assoc_kin_code' => $result['c_assoc_kin_code'] ?? null,
+                'c_assoc_kin_id' => $result['c_assoc_kin_id'] ?? null,
+                'c_text_title' => $result['c_text_title'] ?? '',
+                'c_assoc_first_year' => $result['c_assoc_first_year'] ?? '-9999',
+            ]) ?? $result;
+        }
+
+        if (empty($original)) {
+            throw new \RuntimeException('缺少原始資料，無法更新。');
+        }
+
+        $result = $this->biogMainRepository->assocUpdateById(
+            $request,
+            $this->buildLegacyAssocId($original),
+            $personId
+        );
+
+        if ($result === []) {
+            throw new \RuntimeException('資料不存在或已被刪除，無法更新。');
+        }
+
+        return $this->fetchAppliedRow('ASSOC_DATA', [
+            'c_personid' => $personId,
+            'c_assoc_code' => $result['c_assoc_code'] ?? $original['c_assoc_code'] ?? null,
+            'c_assoc_id' => $result['c_assoc_id'] ?? $original['c_assoc_id'] ?? null,
+            'c_kin_code' => $result['c_kin_code'] ?? $original['c_kin_code'] ?? null,
+            'c_kin_id' => $result['c_kin_id'] ?? $original['c_kin_id'] ?? null,
+            'c_assoc_kin_code' => $result['c_assoc_kin_code'] ?? $original['c_assoc_kin_code'] ?? null,
+            'c_assoc_kin_id' => $result['c_assoc_kin_id'] ?? $original['c_assoc_kin_id'] ?? null,
+            'c_text_title' => $result['c_text_title'] ?? $original['c_text_title'] ?? '',
+            'c_assoc_first_year' => $result['c_assoc_first_year'] ?? $original['c_assoc_first_year'] ?? '-9999',
+        ]) ?? array_merge($original, $result);
+    }
+
+    protected function applyOfficeProposal(
+        Operation $operation,
+        array $data,
+        array $original,
+        array $auxiliaryPayload
+    ): array {
+        $personId = (int) ($operation->c_personid ?? $data['c_personid'] ?? $original['c_personid'] ?? 0);
+        $request = Request::create('/', 'POST', array_merge($data, $auxiliaryPayload));
+
+        if ((int) $operation->op_type === Operation::TYPE_PROPOSAL_CREATE) {
+            $resourceId = $this->biogMainRepository->officeStoreById($request, $personId);
+        } else {
+            if (empty($original)) {
+                throw new \RuntimeException('缺少原始資料，無法更新。');
+            }
+
+            $result = $this->biogMainRepository->officeUpdateById(
+                $request,
+                $this->buildLegacyOfficeId($original),
+                $personId
+            );
+            $resourceId = is_array($result) ? ($result['id'] ?? null) : $result;
+        }
+
+        if (!is_string($resourceId) || $resourceId === '') {
+            throw new \RuntimeException('官名提案套用後無法取得主鍵。');
+        }
+
+        $pk = CompositePrimaryKey::parseStoredResourceId($resourceId, 'POSTED_TO_OFFICE_DATA');
+        if ($pk === null) {
+            throw new \RuntimeException('官名提案套用後無法解析主鍵。');
+        }
+
+        $row = $this->fetchAppliedRow('POSTED_TO_OFFICE_DATA', $pk);
+        if ($row === null) {
+            throw new \RuntimeException('官名提案套用後讀取資料失敗。');
+        }
+
+        return $row;
+    }
+
+    protected function applyEventProposal(
+        Operation $operation,
+        array $data,
+        array $original,
+        array $auxiliaryPayload
+    ): array {
+        $personId = (int) ($operation->c_personid ?? $data['c_personid'] ?? $original['c_personid'] ?? 0);
+        $request = Request::create('/', 'POST', array_merge($data, $auxiliaryPayload));
+
+        if ((int) $operation->op_type === Operation::TYPE_PROPOSAL_CREATE) {
+            $result = $this->biogMainRepository->eventStoreById($request, $personId);
+        } else {
+            if (empty($original)) {
+                throw new \RuntimeException('缺少原始資料，無法更新。');
+            }
+
+            $result = $this->biogMainRepository->eventUpdateById(
+                $request,
+                $personId,
+                $this->buildLegacyEventId($original)
+            );
+        }
+
+        return $this->fetchAppliedRow('EVENTS_DATA', [
+            'c_personid' => $personId,
+            'c_sequence' => $result['c_sequence'] ?? $original['c_sequence'] ?? null,
+            'c_event_code' => $result['c_event_code'] ?? $original['c_event_code'] ?? null,
+        ]) ?? array_merge($original, $result);
+    }
+
     protected function buildLegacyKinshipId(array $original): string {
         foreach (['c_personid', 'c_kin_id', 'c_kin_code'] as $column) {
             if (!array_key_exists($column, $original)) {
@@ -252,6 +388,65 @@ class OperationsProposalController extends Controller {
             $original['c_kin_id'],
             $original['c_kin_code'],
         ]);
+    }
+
+    protected function buildLegacyAssocId(array $original): string {
+        $required = ['c_personid', 'c_assoc_code', 'c_assoc_id', 'c_kin_code', 'c_kin_id', 'c_assoc_kin_code', 'c_assoc_kin_id'];
+        foreach ($required as $column) {
+            if (!array_key_exists($column, $original)) {
+                throw new \RuntimeException("缺少 {$column}，無法更新社會關係提案。");
+            }
+        }
+
+        $assocFirstYear = (string) ($original['c_assoc_first_year'] ?? '-9999');
+
+        return implode('-', [
+            $original['c_personid'],
+            $original['c_assoc_code'],
+            $original['c_assoc_id'],
+            $original['c_kin_code'],
+            $original['c_kin_id'],
+            $original['c_assoc_kin_code'],
+            $original['c_assoc_kin_id'],
+            $this->biogMainRepository->unionPKDef($original['c_text_title'] ?? ''),
+            str_replace('-', '(minus)', $assocFirstYear),
+        ]);
+    }
+
+    protected function buildLegacyOfficeId(array $original): string {
+        foreach (['c_office_id', 'c_posting_id'] as $column) {
+            if (!array_key_exists($column, $original)) {
+                throw new \RuntimeException("缺少 {$column}，無法更新官名提案。");
+            }
+        }
+
+        return $original['c_office_id'].'-'.$original['c_posting_id'];
+    }
+
+    protected function buildLegacyEventId(array $original): string {
+        foreach (['c_sequence', 'c_event_code'] as $column) {
+            if (!array_key_exists($column, $original)) {
+                throw new \RuntimeException("缺少 {$column}，無法更新事件提案。");
+            }
+        }
+
+        return $original['c_sequence'].'-'.$original['c_event_code'];
+    }
+
+    protected function fetchAppliedRow(string $table, array $conditions): ?array {
+        $conditions = array_filter($conditions, static fn ($value) => $value !== null);
+        if ($conditions === []) {
+            return null;
+        }
+
+        $query = DB::table($table);
+        foreach ($conditions as $column => $value) {
+            $query->where($column, $value);
+        }
+
+        $row = $query->first();
+
+        return $row ? $this->convertRowToArray($row) : null;
     }
 
     protected function applyCreateProposal(string $table, array $data, array $keyColumns): array {
