@@ -91,6 +91,22 @@ class BasicInformationProposalTest extends TestCase {
             $table->timestamps();
         });
 
+        Schema::dropIfExists('audit_log');
+        Schema::create('audit_log', function (Blueprint $table) {
+            $table->increments('id');
+            $table->timestamp('occurred_at')->nullable();
+            $table->timestamp('created_at')->nullable();
+            $table->string('table_name');
+            $table->string('operation');
+            $table->string('actor_type')->nullable();
+            $table->string('actor_id')->nullable();
+            $table->string('operation_id')->nullable();
+            $table->longText('row_pk')->nullable();
+            $table->string('row_pk_text')->nullable();
+            $table->longText('old_data')->nullable();
+            $table->longText('new_data')->nullable();
+        });
+
         Schema::dropIfExists('ALTNAME_DATA');
         Schema::create('ALTNAME_DATA', function (Blueprint $table) {
             $table->integer('c_personid');
@@ -119,8 +135,11 @@ class BasicInformationProposalTest extends TestCase {
     }
 
     protected function tearDown(): void {
+        Schema::dropIfExists('KIN_DATA');
+        Schema::dropIfExists('KINSHIP_CODES');
         Schema::dropIfExists('POSSESSION_DATA');
         Schema::dropIfExists('ALTNAME_DATA');
+        Schema::dropIfExists('audit_log');
         Schema::dropIfExists('operations');
         Schema::dropIfExists('users');
         parent::tearDown();
@@ -157,6 +176,31 @@ class BasicInformationProposalTest extends TestCase {
         ]);
 
         return $user;
+    }
+
+    protected function createKinshipTables(): void {
+        Schema::dropIfExists('KIN_DATA');
+        Schema::dropIfExists('KINSHIP_CODES');
+
+        Schema::create('KINSHIP_CODES', function (Blueprint $table) {
+            $table->integer('c_kincode')->primary();
+            $table->integer('c_kin_pair1')->nullable();
+            $table->integer('c_kin_pair2')->nullable();
+        });
+
+        Schema::create('KIN_DATA', function (Blueprint $table) {
+            $table->integer('c_personid');
+            $table->integer('c_kin_id');
+            $table->integer('c_kin_code');
+            $table->integer('c_source')->nullable();
+            $table->string('c_pages')->nullable();
+            $table->text('c_notes')->nullable();
+            $table->text('c_autogen_notes')->nullable();
+            $table->string('c_created_by')->nullable();
+            $table->string('c_created_date')->nullable();
+            $table->string('c_modified_by')->nullable();
+            $table->string('c_modified_date')->nullable();
+        });
     }
 
     #[Test]
@@ -447,6 +491,52 @@ class BasicInformationProposalTest extends TestCase {
     }
 
     #[Test]
+    public function testKinshipProposalUpdateStoresAuxiliaryFieldsInProposalMeta() {
+        $this->createKinshipTables();
+
+        DB::table('KIN_DATA')->insert([
+            'c_personid' => 1,
+            'c_kin_id' => 2,
+            'c_kin_code' => 111,
+            'c_source' => 100,
+            'c_pages' => '原頁碼',
+            'c_notes' => '原註記',
+            'c_autogen_notes' => 'mirror-note',
+        ]);
+
+        $user = $this->makeActiveUser();
+        $this->actingAs($user);
+
+        $response = $this->post(route('basicinformation.proposal.update', [
+            'personid' => 1,
+            'resource' => 'kinship',
+            'id' => '1-2-111',
+        ]), [
+            'c_kin_id' => 2,
+            'c_kin_code' => 75,
+            'c_source' => 65006,
+            'c_pages' => 'lgid=192832',
+            'c_notes' => '更新後註記',
+            'c_autogen_notes' => 'mirror-note',
+            'c_kinship_pair' => 176,
+            '__proposal_comment' => '修改親屬',
+        ]);
+
+        $response->assertRedirect();
+
+        $operation = Operation::where('resource', 'KIN_DATA')
+            ->where('op_type', Operation::TYPE_PROPOSAL_UPDATE)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($operation);
+        $payload = json_decode($operation->resource_data, true);
+        $this->assertSame(75, $payload['c_kin_code']);
+        $this->assertArrayNotHasKey('c_kinship_pair', $payload);
+        $this->assertSame(176, $payload['__proposal_aux']['c_kinship_pair'] ?? null);
+    }
+
+    #[Test]
     public function testApproveCreateProposalInsertsRow() {
         $admin = $this->makeAdmin();
         $this->actingAs($admin);
@@ -570,6 +660,110 @@ class BasicInformationProposalTest extends TestCase {
         // 驗證正式操作記錄
         $this->assertDatabaseHas('operations', [
             'resource' => 'ALTNAME_DATA',
+            'op_type' => Operation::TYPE_UPDATE,
+            'c_personid' => 1,
+        ]);
+    }
+
+    #[Test]
+    public function testApproveKinshipUpdateProposalUsesDirectWorkflowAndUpdatesMirrorRow() {
+        $this->createKinshipTables();
+        $this->app->instance(BiogMainRepository::class, new BiogMainRepository());
+
+        DB::table('KINSHIP_CODES')->insert([
+            'c_kincode' => 111,
+            'c_kin_pair1' => 301,
+            'c_kin_pair2' => null,
+        ]);
+
+        DB::table('KIN_DATA')->insert([
+            'c_personid' => 1,
+            'c_kin_id' => 2,
+            'c_kin_code' => 111,
+            'c_source' => 100,
+            'c_pages' => '原頁碼',
+            'c_notes' => '原註記',
+            'c_autogen_notes' => 'mirror-note',
+            'c_created_by' => 'seed',
+            'c_created_date' => '2025-01-01 00:00:00',
+        ]);
+
+        DB::table('KIN_DATA')->insert([
+            'c_personid' => 2,
+            'c_kin_id' => 1,
+            'c_kin_code' => 301,
+            'c_source' => 100,
+            'c_pages' => '原頁碼',
+            'c_notes' => '原註記',
+            'c_autogen_notes' => 'mirror-note',
+            'c_created_by' => 'seed',
+            'c_created_date' => '2025-01-01 00:00:00',
+        ]);
+
+        $admin = $this->makeAdmin();
+        $this->actingAs($admin);
+
+        $operation = new Operation();
+        $operation->user_id = 100;
+        $operation->c_personid = 1;
+        $operation->op_type = Operation::TYPE_PROPOSAL_UPDATE;
+        $operation->resource = 'KIN_DATA';
+        $operation->resource_id = '1-2-111';
+        $operation->resource_data = json_encode([
+            'c_personid' => 1,
+            'c_kin_id' => 2,
+            'c_kin_code' => 75,
+            'c_source' => 65006,
+            'c_pages' => 'lgid=192832',
+            'c_notes' => null,
+            'c_autogen_notes' => 'mirror-note',
+            'c_kinship_pair' => 176,
+            '__key_columns' => ['c_personid', 'c_kin_id', 'c_kin_code'],
+            '__review_status' => 'pending',
+        ], JSON_UNESCAPED_UNICODE);
+        $operation->resource_original = json_encode([
+            'c_personid' => 1,
+            'c_kin_id' => 2,
+            'c_kin_code' => 111,
+            'c_source' => 100,
+            'c_pages' => '原頁碼',
+            'c_notes' => '原註記',
+            'c_autogen_notes' => 'mirror-note',
+        ], JSON_UNESCAPED_UNICODE);
+        $operation->save();
+
+        $response = $this->post(route('operations.proposals.approve', $operation), [
+            'review_comment' => '同意修改親屬',
+        ]);
+
+        $response->assertRedirect();
+        $flash = session('flash_notification', collect())->toArray();
+        $this->assertNotEmpty($flash);
+        $this->assertStringContainsString('已核准', $flash[0]['message'] ?? '');
+
+        $this->assertDatabaseHas('KIN_DATA', [
+            'c_personid' => 1,
+            'c_kin_id' => 2,
+            'c_kin_code' => 75,
+            'c_source' => 65006,
+            'c_pages' => 'lgid=192832',
+        ]);
+
+        $this->assertDatabaseHas('KIN_DATA', [
+            'c_personid' => 2,
+            'c_kin_id' => 1,
+            'c_kin_code' => 176,
+            'c_source' => 65006,
+            'c_pages' => 'lgid=192832',
+        ]);
+
+        $operation->refresh();
+        $payload = json_decode($operation->resource_data, true);
+        $this->assertSame('approved', $payload['__review_status']);
+        $this->assertSame('同意修改親屬', $payload['__review_comment']);
+
+        $this->assertDatabaseHas('operations', [
+            'resource' => 'KIN_DATA',
             'op_type' => Operation::TYPE_UPDATE,
             'c_personid' => 1,
         ]);
