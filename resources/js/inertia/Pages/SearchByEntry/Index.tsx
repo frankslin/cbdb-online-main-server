@@ -26,13 +26,14 @@ interface PageProps {
         type_id: string | null;
     };
     errors: Record<string, string>;
+    pageUrl: string;
     typesEndpoint: string;
     codesEndpoint: string;
     [key: string]: unknown;
 }
 
 export default function Index() {
-    const { entryTypes, preloadedCodes, results, filters, errors, typesEndpoint, codesEndpoint } = usePage<PageProps>().props;
+    const { entryTypes, preloadedCodes, results, filters, errors, pageUrl, typesEndpoint, codesEndpoint } = usePage<PageProps>().props;
 
     // Local state
     const [selectedTypeId, setSelectedTypeId] = useState<string | null>(filters.type_id ?? null);
@@ -123,7 +124,7 @@ export default function Index() {
         if (addrId) params.addr_id = addrId;
         if (selectedTypeId) params.type_id = selectedTypeId;
 
-        router.get('/app/search-by/entry', params as Record<string, string>, {
+        router.get(pageUrl, params as Record<string, string>, {
             preserveState: false,
             onFinish: () => setSubmitting(false),
         });
@@ -137,7 +138,7 @@ export default function Index() {
         if (filters.addr_id != null) params.addr_id = filters.addr_id;
         if (filters.type_id) params.type_id = filters.type_id;
 
-        router.get('/app/search-by/entry', params as Record<string, string>, {
+        router.get(pageUrl, params as Record<string, string>, {
             preserveState: false,
         });
     };
@@ -149,7 +150,7 @@ export default function Index() {
         setYearFrom('');
         setYearTo('');
         setAddrId('');
-        router.get('/app/search-by/entry', {}, { preserveState: false });
+        router.get(pageUrl, {}, { preserveState: false });
     };
 
     const hasFilters = selectedCodes.length > 0 || yearFrom || yearTo || addrId;

@@ -101,9 +101,8 @@ class SearchByEntryController extends Controller {
         $request->validate([
             'entry_codes' => 'nullable|array',
             'entry_codes.*' => 'integer',
-            'year_from' => 'nullable|integer',
-            'year_to' => 'nullable|integer',
             'year_from' => 'nullable|integer|lte:year_to',
+            'year_to' => 'nullable|integer',
             'addr_id' => 'nullable|integer',
             'type_id' => 'nullable|string',
         ]);
@@ -159,6 +158,7 @@ class SearchByEntryController extends Controller {
                 'addr_id' => $addrId !== null ? (int) $addrId : null,
                 'type_id' => $typeId,
             ],
+            'pageUrl' => route('app.search-by.entry.index', [], false),
             'typesEndpoint' => route('search-by.entry.types', [], false),
             'codesEndpoint' => route('search-by.entry.codes', [], false),
         ]);
