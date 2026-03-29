@@ -19,10 +19,10 @@ Git 现存代码贡献统计脚本
 选项：
   --since YYYY-MM-DD    仅统计最后修改时间 >= since 的现存代码行
   --paths "dir1 dir2"   指定要统计的目录（空格分隔）
-  --output FILE         CSV 输出文件名（默认：contribution_stats.csv）
+  --output FILE         文字报告输出文件名（默认：contribution_stats.txt）
 
 示例：
-  # 统计默认路径（app resources config routes tests）
+  # 统计默认路径（app resources config routes tests docs）
   python3 git_contribution_stats.py
 
   # 统计 2024 年以来的修改
@@ -34,7 +34,7 @@ Git 现存代码贡献统计脚本
 输出：
 ------
 1. 终端：作者贡献排行榜（按行数降序）
-2. CSV：机器可读格式（author_mail, lines, percent, is_bot）
+2. 文本文件：保存与终端相同的完整报告
 3. 元信息：统计参数、总行数、文件数等
 
 正确性说明：
@@ -72,8 +72,6 @@ import os
 from datetime import datetime
 from collections import defaultdict
 import argparse
-import csv
-
 # 默认排除的目录（生成物、依赖、临时文件）
 DEFAULT_EXCLUDED = [
     'node_modules/',
@@ -85,8 +83,8 @@ DEFAULT_EXCLUDED = [
     'build/',
 ]
 
-# 默认统计的路径（源代码与测试目录）
-DEFAULT_PATHS = ['app', 'resources', 'config', 'routes', 'tests']
+# 默认统计的路径（源代码、测试与文档目录）
+DEFAULT_PATHS = ['app', 'resources', 'config', 'routes', 'tests', 'docs']
 
 CLAUDE_EMAILS = {'<noreply@anthropic.com>'}
 COPILOT_EMAILS = {
@@ -369,8 +367,8 @@ def main():
     parser.add_argument('--exclude',
                        help='要排除的目录/文件，空格分隔（支持通配符）')
     parser.add_argument('--output',
-                       default='contribution_stats.csv',
-                       help='CSV 输出文件名（默认：contribution_stats.csv）')
+                       default='contribution_stats.txt',
+                       help='文字报告输出文件名（默认：contribution_stats.txt）')
 
     args = parser.parse_args()
 
@@ -471,92 +469,92 @@ def main():
     # ========== 排序 ==========
 
     sorted_authors = sorted(author_lines.items(), key=lambda x: x[1], reverse=True)
+    report_lines = []
+
+    def emit(line=''):
+        print(line)
+        report_lines.append(line)
 
     # ========== 输出 A：终端可读汇总 ==========
 
-    print(f"\nTOTAL_LINES: {total_lines}\n")
-    print(f"{'Author':<50} {'Lines':>10} {'Percent':>10}")
-    print("-" * 72)
+    emit()
+    emit(f"TOTAL_LINES: {total_lines}")
+    emit()
+    emit(f"{'Author':<50} {'Lines':>10} {'Percent':>10}")
+    emit("-" * 72)
 
     for author, lines in sorted_authors:
         percent = (lines / total_lines * 100)
-        print(f"{author:<50} {lines:>10} {percent:>9.2f}%")
+        emit(f"{author:<50} {lines:>10} {percent:>9.2f}%")
 
-    # ========== 输出 B：CSV 文件 ==========
+    # ========== 输出 B：统计元信息 ==========
 
-    with open(args.output, 'w', newline='', encoding='utf-8') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(['author_mail', 'lines', 'percent', 'is_bot'])
+    emit()
+    emit("=" * 72)
+    emit("统计元信息")
+    emit("=" * 72)
+    emit(f"HEAD commit:      {head_hash}")
+    emit(f"--since filter:   {args.since if args.since else 'None'}")
+    emit(f"Paths analyzed:   {', '.join(paths)}")
+    emit(f"Files scanned:    {len(files)}")
+    emit(f"Files processed:  {processed_files}")
+    emit(f"Total lines:      {total_lines}")
+    emit(f"Unique authors:   {len(author_lines)}")
 
-        for author, lines in sorted_authors:
-            percent = (lines / total_lines * 100)
-            writer.writerow([
-                author,
-                lines,
-                f"{percent:.2f}",
-                'true' if is_bot(author) else 'false'
-            ])
-
-    print(f"\nCSV 已保存: {args.output}")
-
-    # ========== 输出 C：统计元信息 ==========
-
-    print("\n" + "=" * 72)
-    print("统计元信息")
-    print("=" * 72)
-    print(f"HEAD commit:      {head_hash}")
-    print(f"--since filter:   {args.since if args.since else 'None'}")
-    print(f"Paths analyzed:   {', '.join(paths)}")
-    print(f"Files scanned:    {len(files)}")
-    print(f"Files processed:  {processed_files}")
-    print(f"Total lines:      {total_lines}")
-    print(f"Unique authors:   {len(author_lines)}")
-
-    print("\nLOC 分类:")
+    emit()
+    emit("LOC 分类:")
     for category in LOC_CATEGORIES:
         lines = category_lines[category]
         if lines == 0:
             continue
         percent = (lines / total_lines * 100)
-        print(f"  {category:<10} {lines:>8} lines ({percent:.2f}%)")
+        emit(f"  {category:<10} {lines:>8} lines ({percent:.2f}%)")
 
     # Bot 统计
     bot_lines = sum(lines for author, lines in author_lines.items() if is_bot(author))
     if bot_lines > 0:
         bot_percent = (bot_lines / total_lines * 100)
-        print(f"Bot contributions: {bot_lines} lines ({bot_percent:.2f}%)")
+        emit(f"Bot contributions: {bot_lines} lines ({bot_percent:.2f}%)")
 
     # Claude Co-author 统计
     claude_direct = count_direct_lines(author_lines, claude_emails)
     if claude_direct > 0 or claude_co_author_lines > 0:
         claude_total = claude_direct + claude_co_author_lines
         claude_total_percent = (claude_total / total_lines * 100)
-        print("\n" + "-" * 72)
-        print("Claude 贡献详细统计:")
-        print(f"  作为 Author:      {claude_direct} lines ({claude_direct/total_lines*100:.2f}%)")
-        print(f"  作为 Co-author:   {claude_co_author_lines} lines ({claude_co_author_lines/total_lines*100:.2f}%)")
-        print(f"  总计:             {claude_total} lines ({claude_total_percent:.2f}%)")
-        print("-" * 72)
+        emit()
+        emit("-" * 72)
+        emit("Claude 贡献详细统计:")
+        emit(f"  作为 Author:      {claude_direct} lines ({claude_direct/total_lines*100:.2f}%)")
+        emit(f"  作为 Co-author:   {claude_co_author_lines} lines ({claude_co_author_lines/total_lines*100:.2f}%)")
+        emit(f"  总计:             {claude_total} lines ({claude_total_percent:.2f}%)")
+        emit("-" * 72)
 
     copilot_direct = count_direct_lines(author_lines, copilot_emails)
     if copilot_direct > 0 or copilot_co_author_lines > 0:
         copilot_total = copilot_direct + copilot_co_author_lines
         copilot_total_percent = (copilot_total / total_lines * 100)
-        print("\n" + "-" * 72)
-        print("Copilot 贡献详细统计:")
-        print(f"  作为 Author:      {copilot_direct} lines ({copilot_direct/total_lines*100:.2f}%)")
-        print(f"  作为 Co-author:   {copilot_co_author_lines} lines ({copilot_co_author_lines/total_lines*100:.2f}%)")
-        print(f"  总计:             {copilot_total} lines ({copilot_total_percent:.2f}%)")
-        print("-" * 72)
+        emit()
+        emit("-" * 72)
+        emit("Copilot 贡献详细统计:")
+        emit(f"  作为 Author:      {copilot_direct} lines ({copilot_direct/total_lines*100:.2f}%)")
+        emit(f"  作为 Co-author:   {copilot_co_author_lines} lines ({copilot_co_author_lines/total_lines*100:.2f}%)")
+        emit(f"  总计:             {copilot_total} lines ({copilot_total_percent:.2f}%)")
+        emit("-" * 72)
 
-    print("=" * 72)
+    emit("=" * 72)
 
-    # ========== 正确性自检说明 ==========
+    # ========== 输出 C：保存完整文本报告 ==========
 
-    print("\n# 正确性说明")
-    print("# 1. git blame 归因符合\"现存代码责任\"：每行归属最后修改者")
-    print("# 2. 格式化、重构会改变贡献比例（这是 Git 语义的预期行为）")
-    print("# 3. 此统计不包含历史贡献、commit 数、code review 等")
+    emit()
+    emit("# 正确性说明")
+    emit("# 1. git blame 归因符合\"现存代码责任\"：每行归属最后修改者")
+    emit("# 2. 格式化、重构会改变贡献比例（这是 Git 语义的预期行为）")
+    emit("# 3. 此统计不包含历史贡献、commit 数、code review 等")
+    emit()
+    emit(f"文字报告已保存: {args.output}")
+
+    with open(args.output, 'w', encoding='utf-8') as report_file:
+        report_file.write('\n'.join(report_lines) + '\n')
 
 
 if __name__ == '__main__':
