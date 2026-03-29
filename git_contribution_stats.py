@@ -22,7 +22,7 @@ Git 现存代码贡献统计脚本
   --output FILE         CSV 输出文件名（默认：contribution_stats.csv）
 
 示例：
-  # 统计默认路径（app resources config routes）
+  # 统计默认路径（app resources config routes tests）
   python3 git_contribution_stats.py
 
   # 统计 2024 年以来的修改
@@ -85,8 +85,17 @@ DEFAULT_EXCLUDED = [
     'build/',
 ]
 
-# 默认统计的路径（源代码目录）
-DEFAULT_PATHS = ['app', 'resources', 'config', 'routes']
+# 默认统计的路径（源代码与测试目录）
+DEFAULT_PATHS = ['app', 'resources', 'config', 'routes', 'tests']
+
+CLAUDE_EMAILS = {'<noreply@anthropic.com>'}
+COPILOT_EMAILS = {
+    '<175728472+Copilot@users.noreply.github.com>',
+    '<198982749+Copilot@users.noreply.github.com>',
+    '<223556219+Copilot@users.noreply.github.com>',
+}
+
+LOC_CATEGORIES = ['backend', 'frontend', 'docs', 'tests', 'other']
 
 
 def get_git_files(paths, excluded):
@@ -228,7 +237,7 @@ def get_commit_co_authors(commit_hash, cache={}):
         co_authors = []
         for line in result.stdout.split('\n'):
             # Co-authored-by: Name <email@example.com>
-            if line.strip().startswith('Co-authored-by:'):
+            if re.match(r'^co-authored-by:\s+', line.strip(), re.IGNORECASE):
                 match = re.search(r'<(.+?)>', line)
                 if match:
                     co_authors.append(f'<{match.group(1)}>')
@@ -277,6 +286,58 @@ def apply_mailmap(author_email):
         return author_email
     except subprocess.CalledProcessError:
         return author_email
+
+
+def count_direct_lines(author_lines, assistant_emails):
+    return sum(lines for author, lines in author_lines.items() if author in assistant_emails)
+
+
+def classify_file_category(file_path):
+    """
+    将文件归类为 backend / frontend / docs / tests / other。
+
+    规则优先按路径判断，再辅以扩展名。
+    """
+    normalized = file_path.replace('\\', '/').lstrip('./')
+    basename = os.path.basename(normalized).lower()
+
+    if normalized.startswith('tests/'):
+        return 'tests'
+
+    if (
+        normalized.startswith('resources/views/')
+        or normalized.startswith('resources/js/')
+        or normalized.startswith('resources/css/')
+        or normalized.startswith('resources/sass/')
+        or normalized.startswith('resources/scss/')
+        or normalized.startswith('resources/ts/')
+        or normalized.startswith('resources/tsx/')
+        or normalized.startswith('resources/vue/')
+        or basename.endswith(('.vue', '.jsx', '.tsx', '.ts', '.css', '.scss', '.sass', '.less'))
+        or basename in {'vite.config.js', 'vite.config.ts', 'tailwind.config.js', 'tailwind.config.ts'}
+    ):
+        return 'frontend'
+
+    if (
+        normalized.startswith('docs/')
+        or basename in {'readme.md', 'changelog.md', 'agents.md', 'api.md', 'database.md', 'merge.md', 'views.md', 'codes_tables.md'}
+        or basename.endswith(('.md', '.mdx', '.rst', '.txt', '.adoc'))
+    ):
+        return 'docs'
+
+    if (
+        normalized.startswith('app/')
+        or normalized.startswith('config/')
+        or normalized.startswith('routes/')
+        or normalized.startswith('database/')
+        or normalized.startswith('bootstrap/')
+        or normalized.startswith('lang/')
+        or basename == 'artisan'
+        or basename.endswith('.php')
+    ):
+        return 'backend'
+
+    return 'other'
 
 
 def main():
@@ -360,8 +421,9 @@ def main():
     # ========== 执行 blame 统计 ==========
 
     author_lines = defaultdict(int)
-    claude_co_author_lines = 0  # Claude 作为 co-author 的行数
-    claude_emails = ['<noreply@anthropic.com>']  # Claude 的邮箱列表
+    category_lines = defaultdict(int)
+    claude_co_author_lines = 0
+    copilot_co_author_lines = 0
     total_lines = 0
     processed_files = 0
 
@@ -373,15 +435,21 @@ def main():
 
         if authors:
             processed_files += 1
+            category = classify_file_category(file_path)
+            category_lines[category] += len(authors)
             for author, _, commit_hash in authors:
                 author_lines[author] += 1
                 total_lines += 1
 
-                # 检查 Claude 是否是 co-author
-                if author not in claude_emails:
-                    co_authors = get_commit_co_authors(commit_hash)
-                    if any(email in claude_emails for email in co_authors):
+                co_authors = get_commit_co_authors(commit_hash)
+
+                if author not in CLAUDE_EMAILS:
+                    if any(email in CLAUDE_EMAILS for email in co_authors):
                         claude_co_author_lines += 1
+
+                if author not in COPILOT_EMAILS:
+                    if any(email in COPILOT_EMAILS for email in co_authors):
+                        copilot_co_author_lines += 1
 
     if total_lines == 0:
         print("警告：没有统计到任何代码行", file=sys.stderr)
@@ -396,6 +464,9 @@ def main():
             mapped_author = apply_mailmap(author)
             merged_lines[mapped_author] += lines
         author_lines = merged_lines
+
+    claude_emails = {apply_mailmap(email) for email in CLAUDE_EMAILS} if os.path.exists('.mailmap') else CLAUDE_EMAILS
+    copilot_emails = {apply_mailmap(email) for email in COPILOT_EMAILS} if os.path.exists('.mailmap') else COPILOT_EMAILS
 
     # ========== 排序 ==========
 
@@ -441,6 +512,14 @@ def main():
     print(f"Total lines:      {total_lines}")
     print(f"Unique authors:   {len(author_lines)}")
 
+    print("\nLOC 分类:")
+    for category in LOC_CATEGORIES:
+        lines = category_lines[category]
+        if lines == 0:
+            continue
+        percent = (lines / total_lines * 100)
+        print(f"  {category:<10} {lines:>8} lines ({percent:.2f}%)")
+
     # Bot 统计
     bot_lines = sum(lines for author, lines in author_lines.items() if is_bot(author))
     if bot_lines > 0:
@@ -448,9 +527,8 @@ def main():
         print(f"Bot contributions: {bot_lines} lines ({bot_percent:.2f}%)")
 
     # Claude Co-author 统计
-    if claude_co_author_lines > 0:
-        claude_direct = sum(lines for author, lines in author_lines.items()
-                          if author in claude_emails)
+    claude_direct = count_direct_lines(author_lines, claude_emails)
+    if claude_direct > 0 or claude_co_author_lines > 0:
         claude_total = claude_direct + claude_co_author_lines
         claude_total_percent = (claude_total / total_lines * 100)
         print("\n" + "-" * 72)
@@ -458,6 +536,17 @@ def main():
         print(f"  作为 Author:      {claude_direct} lines ({claude_direct/total_lines*100:.2f}%)")
         print(f"  作为 Co-author:   {claude_co_author_lines} lines ({claude_co_author_lines/total_lines*100:.2f}%)")
         print(f"  总计:             {claude_total} lines ({claude_total_percent:.2f}%)")
+        print("-" * 72)
+
+    copilot_direct = count_direct_lines(author_lines, copilot_emails)
+    if copilot_direct > 0 or copilot_co_author_lines > 0:
+        copilot_total = copilot_direct + copilot_co_author_lines
+        copilot_total_percent = (copilot_total / total_lines * 100)
+        print("\n" + "-" * 72)
+        print("Copilot 贡献详细统计:")
+        print(f"  作为 Author:      {copilot_direct} lines ({copilot_direct/total_lines*100:.2f}%)")
+        print(f"  作为 Co-author:   {copilot_co_author_lines} lines ({copilot_co_author_lines/total_lines*100:.2f}%)")
+        print(f"  总计:             {copilot_total} lines ({copilot_total_percent:.2f}%)")
         print("-" * 72)
 
     print("=" * 72)
