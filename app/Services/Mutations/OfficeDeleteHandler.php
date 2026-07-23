@@ -3,6 +3,7 @@
 namespace App\Services\Mutations;
 
 use App\Services\Import\OfficeImportService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -48,7 +49,23 @@ class OfficeDeleteHandler extends AbstractMutationHandler {
             );
         }
 
-        $result = DB::transaction(fn () => $this->service->delete($officeId, $personId));
+        try {
+            $result = DB::transaction(fn () => $this->service->delete($officeId, $personId));
+        } catch (QueryException $e) {
+            // OFFICE_CODES 入邊外鍵已翻成 ON DELETE RESTRICT（去級聯 Phase 1 批次 3）：
+            // referenceCount() 只擋 POSTED_TO_OFFICE_DATA，若仍有漏網引用（如 POSTED_TO_ADDR_DATA
+            // 殘留列），DELETE 會被 DB 以 1451 擋下、交易回滾（含 operations 記錄）。
+            // fail-closed、零資料損失，這裡轉為友好訊息。
+            if (($e->errorInfo[1] ?? null) !== 1451) {
+                throw $e;
+            }
+
+            return $this->errorResponse(
+                '此官職仍被其他資料引用（如任官地址），無法刪除。請先移除引用後再試。',
+                409,
+                ['c_office_id' => ['referenced_by_other_records']]
+            );
+        }
 
         return response()->json([
             'ok' => true,
