@@ -10,12 +10,12 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * code 表 mutation（resource=text-codes → TEXT_CODES）回歸測試。
+ * TEXT_CODES 裸表 create/delete（resource=text-codes）已下架的回歸測試。
  *
- * 驗證 config 驅動的 CodeTableCreate/DeleteHandler：
- * - create 顯式主鍵 / 自動分配（max+1）/ 顯式撞號 409 / 不允許欄位 422
- * - delete 按主鍵
- * - batch_mutate 逐筆
+ * TEXT_CODES 於 2026-08 收斂為文獻實體聚合（resource=text-entity，見
+ * ApiV2MutateTextEntityTest／config/entity_aggregates.php）：config/code_table_writes.php
+ * 不再登記 TEXT_CODES，裸表 create/delete 對 text-codes 一律回 501（無 handler 認領），
+ * 不落庫、不寫審計。這裡固化「舊通道已封閉」的行為，防止 config 被誤加回。
  */
 class ApiV2MutateCodeTableTextCodesTest extends TestCase {
     protected function setUp(): void {
@@ -89,85 +89,36 @@ class ApiV2MutateCodeTableTextCodesTest extends TestCase {
         parent::tearDown();
     }
 
-    protected function makeUser(int $status = User::STATUS_ACTIVE, int $role = User::ROLE_REGULAR, string $email = 'tc@example.com'): User {
+    protected function makeUser(string $email = 'tc@example.com'): User {
         return User::forceCreate([
             'name' => 'Code Tester',
             'email' => $email,
             'confirmation_token' => 'tok',
-            'is_active' => $status,
-            'is_admin' => $role,
+            'is_active' => User::STATUS_ACTIVE,
+            'is_admin' => User::ROLE_REGULAR,
         ]);
     }
 
     #[Test]
-    public function testCreateWithExplicitId(): void {
-        $this->actingAs($this->makeUser(email: 'tc-explicit@example.com'));
+    public function testBareCreateIsClosed(): void {
+        $this->actingAs($this->makeUser(email: 'tc-create@example.com'));
 
-        $res = $this->postJson('/api/v2/create', [
-            'resource' => 'text-codes',
-            'person_id' => 0,
-            'target' => ['pk' => ['c_textid' => 71853]],
-            'changes' => ['c_title_chn' => 'TBDB 1.5', 'c_source' => 0, 'c_notes' => 'x'],
-        ]);
+        foreach (['text-codes', 'text_codes', 'textcodes'] as $alias) {
+            $this->postJson('/api/v2/create', [
+                'resource' => $alias,
+                'person_id' => 0,
+                'target' => ['pk' => ['c_textid' => 71853]],
+                'changes' => ['c_title_chn' => 'TBDB 1.5', 'c_source' => 0],
+            ])->assertStatus(501);
+        }
 
-        $res->assertOk()->assertJson([
-            'ok' => true,
-            'resource' => 'text-codes',
-            'operation' => 'create',
-            'result' => ['pk' => ['c_textid' => 71853]],
-        ]);
-        $this->assertNotNull($res->json('result.operation_id'));
-        $this->assertDatabaseHas('TEXT_CODES', ['c_textid' => 71853, 'c_title_chn' => 'TBDB 1.5']);
-        $this->assertSame('Code Tester', DB::table('TEXT_CODES')->where('c_textid', 71853)->value('c_created_by'));
-        $this->assertSame(1, DB::table('operations')->where('resource', 'TEXT_CODES')->count());
-        $this->assertSame(1, DB::table('audit_log')->where('table_name', 'TEXT_CODES')->count());
-    }
-
-    #[Test]
-    public function testCreateAutoAssignsNextId(): void {
-        $this->actingAs($this->makeUser(email: 'tc-auto@example.com'));
-        DB::table('TEXT_CODES')->insert(['c_textid' => 100, 'c_title_chn' => '既有']);
-
-        $res = $this->postJson('/api/v2/create', [
-            'resource' => 'text-codes',
-            'person_id' => 0,
-            'target' => ['pk' => []],
-            'changes' => ['c_title_chn' => '自動分配', 'c_source' => 0],
-        ]);
-
-        $res->assertOk()->assertJson(['ok' => true, 'result' => ['pk' => ['c_textid' => 101]]]);
-        $this->assertDatabaseHas('TEXT_CODES', ['c_textid' => 101, 'c_title_chn' => '自動分配']);
-    }
-
-    #[Test]
-    public function testExplicitDuplicateReturns409(): void {
-        $this->actingAs($this->makeUser(email: 'tc-dup@example.com'));
-        DB::table('TEXT_CODES')->insert(['c_textid' => 71853, 'c_title_chn' => '已存在']);
-
-        $this->postJson('/api/v2/create', [
-            'resource' => 'text-codes',
-            'person_id' => 0,
-            'target' => ['pk' => ['c_textid' => 71853]],
-            'changes' => ['c_title_chn' => 'x'],
-        ])->assertStatus(409);
-    }
-
-    #[Test]
-    public function testDisallowedFieldReturns422(): void {
-        $this->actingAs($this->makeUser(email: 'tc-bad@example.com'));
-
-        $this->postJson('/api/v2/create', [
-            'resource' => 'text-codes',
-            'person_id' => 0,
-            'target' => ['pk' => ['c_textid' => 71853]],
-            'changes' => ['c_title_chn' => 'x', 'c_not_a_column' => 'y'],
-        ])->assertStatus(422);
         $this->assertSame(0, DB::table('TEXT_CODES')->count());
+        $this->assertSame(0, DB::table('operations')->count());
+        $this->assertSame(0, DB::table('audit_log')->count());
     }
 
     #[Test]
-    public function testDeleteIsDisabled(): void {
-        // 安全：碼表刪除已停用（防級聯刪除人物資料）——回 403、不刪列、不寫 DELETE 審計。
+    public function testBareDeleteIsClosed(): void {
         $this->actingAs($this->makeUser(email: 'tc-del@example.com'));
         DB::table('TEXT_CODES')->insert(['c_textid' => 71853, 'c_title_chn' => '待刪']);
 
@@ -175,14 +126,14 @@ class ApiV2MutateCodeTableTextCodesTest extends TestCase {
             'resource' => 'text-codes',
             'person_id' => 0,
             'target' => ['pk' => ['c_textid' => 71853]],
-        ])->assertStatus(403);
+        ])->assertStatus(501);
 
         $this->assertSame(1, DB::table('TEXT_CODES')->count());
         $this->assertSame(0, DB::table('audit_log')->where('operation', 'DELETE')->count());
     }
 
     #[Test]
-    public function testBatchCreateViaBatchMutate(): void {
+    public function testBatchCreateIsClosed(): void {
         $this->actingAs($this->makeUser(email: 'tc-batch@example.com'));
 
         $this->postJson('/api/v2/batch_mutate', [
@@ -190,10 +141,9 @@ class ApiV2MutateCodeTableTextCodesTest extends TestCase {
             'operation' => 'create',
             'items' => [
                 ['person_id' => 0, 'target' => ['pk' => ['c_textid' => 800]], 'changes' => ['c_title_chn' => '甲']],
-                ['person_id' => 0, 'target' => ['pk' => ['c_textid' => 801]], 'changes' => ['c_title_chn' => '乙']],
             ],
-        ])->assertOk()->assertJson(['ok' => true, 'summary' => ['total' => 2, 'ok' => 2, 'failed' => 0]]);
+        ])->assertJson(['summary' => ['total' => 1, 'ok' => 0, 'failed' => 1]]);
 
-        $this->assertSame(2, DB::table('TEXT_CODES')->count());
+        $this->assertSame(0, DB::table('TEXT_CODES')->count());
     }
 }

@@ -50,5 +50,29 @@ return [
                 'pattern' => 'app.social-institution.*',
             ],
         ],
+        [
+            // 文獻實體（含 TEXT_INSTANCE_DATA 版本層級）。resource 不叫 text——那是人物
+            // 子資源 BIOG_TEXT_DATA 的既有 mutation 別名（見 TextAggregateDefinition 類註）。
+            'resource' => 'text-entity',
+            'service' => \App\Services\Import\TextImportService::class,
+            'definition' => \App\Services\Mutations\EntityAggregate\TextAggregateDefinition::class,
+            'pk' => 'c_textid',
+            'tables' => ['TEXT_CODES', 'TEXT_INSTANCE_DATA'],
+            // step 4（codes UI 封寫）暫緩：裸表編輯頁仍有實體頁未對齊的功能
+            // （TEXT_CODES 編輯頁的作者列表面板、TEXT_INSTANCE_DATA 的 textid 提示／
+            // 載入動作與部分版本欄位）。§4.4「封閉須在實體級入口齊備後才執行」——
+            // parity 補齊後把兩表加回此清單即自動封寫。機器面的裸表 create/delete
+            // （resource=text-codes，config/code_table_writes.php）已由聚合 API 完整
+            // 取代、本輪先行下架。
+            'closed_code_tables' => [],
+            'nav' => [
+                'key' => 'text-codes',
+                'label' => 'codes.text_codes',
+                'icon' => 'fas fa-book',
+                'route' => 'app.text.index',
+                'table' => 'TEXT_CODES',
+                'pattern' => 'app.text.*',
+            ],
+        ],
     ],
 ];

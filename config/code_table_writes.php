@@ -15,20 +15,10 @@
  */
 return [
     'tables' => [
-        'TEXT_CODES' => [
-            'resource' => 'text-codes',
-            'aliases' => ['text-codes', 'text_codes', 'textcodes'],
-            'table' => 'TEXT_CODES',
-            'display_name' => '文本／出處目錄',
-            'key_column' => 'c_textid',
-            'auto_assign_id' => true,
-            'allowed_fields' => [
-                'c_title_chn', 'c_title', 'c_title_trans', 'c_text_type_id', 'c_text_year',
-                'c_text_nh_code', 'c_text_nh_year', 'c_text_range_code', 'c_bibl_cat_code',
-                'c_extant', 'c_text_country', 'c_text_dy', 'c_source', 'c_pages',
-                'c_url_api', 'c_url_api_coda', 'c_url_homepage', 'c_notes', 'c_title_alt_chn',
-            ],
-        ],
+        // TEXT_CODES 已於 2026-08 收斂為文獻實體聚合（resource=text-entity，
+        // TextImportService／TextAggregateDefinition）：裸表 create/delete 自此下架，
+        // 寫入改走 /api/v2/{create,mutate,delete} 的 text-entity（含拼音派生、書名字形
+        // 標準化與版本列）。見 docs/ENTITY_AGGREGATE_ARCHITECTURE.md §4.4。
         'char_variant_map' => [
             'resource' => 'char-variant-map',
             'aliases' => ['char-variant-map', 'char_variant_map', 'charvariantmap'],

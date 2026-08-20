@@ -4,6 +4,14 @@
 
 ## 2026-08
 
+### 文獻（Text）收斂為第三個實體聚合：TEXT_CODES ＋ TEXT_INSTANCE_DATA 版本層級
+- 依 `docs/ENTITY_AGGREGATE_ARCHITECTURE.md` §6 的四步路線把文獻做到 step 3（聚合根＋實體級 API＋專屬前端頁），office／social-institution 之後的第三個聚合。**resource＝`text-entity`**（別名 `book`／`books`；不叫 `text`——那是人物著述子資源 BIOG_TEXT_DATA 的既有 mutation 別名，不可重載）。
+- 聚合根 `TextImportService`：把散在 `AdminBatchLoadBookTitlesController::store()` 的存儲過程（`c_textid` max+1 配號、書名空白／括號／冒號正規化、char_variant_map 寬鬆字形標準化、去卷冊註記＋異體字歸一化的拼音派生、稽核）抽成單一真源，批量匯入表單與 mutation API 共用；批次控制器只剩解析／批前校驗／batch 標記／撤回。TEXT_CODES 主列稽核欄經 AuditActor 蓋章（create 蓋 created、update 只蓋 modified）；operations 的 resource_id 沿用既有「純數字 c_textid」慣例，批次撤回與 /operations 還原鏈路不受影響。
+- **文獻的兩重層級分開處理**：(1) collection→instance——`TEXT_INSTANCE_DATA` 屬聚合內部，update 以 `(edition_id, instance_id)` 為列鍵做集合對賬（同鍵改值、僅增刪差異、逐筆記 op），delete 先刪版本列再刪主列；(2) `c_source` 自引用（著錄來源樹）——**跨實體**引用，update 有成環護欄（指向自己或後代回 422 `source_cycle`，上溯 200 層 fail-closed），delete 的引用計數把子文獻與其他文獻的版本列也計入（樹中間節點不可刪），另涵蓋 19 個入邊 FK 表（含 SET NULL 的 `MERGED_PERSON_DATA`——靜默清空出處也是資料損失）。
+- 專屬頁面 `/app/text`（Index／Create／Edit，寫入走 mutation API）：列表由 `EntityTableBrowser` 描述子驅動（與 office／social parity），計算欄為版本數 `instance_count` 與子文獻數 `child_count`；編輯頁含版本列編輯器與刪除護欄預提示。側欄「文獻代碼表」節點改指此頁（`config/entity_aggregates.php` 單一真源）。
+- **裸表寫入的收斂拆成兩半**：機器面的 `text-codes` 裸表 create/delete（`config/code_table_writes.php`）已下架（現回 501），由聚合 API 完整取代；**codes UI 封寫（step 4）暫緩**——裸表編輯頁仍有實體頁未對齊的功能（TEXT_CODES 編輯頁的作者列表面板、TEXT_INSTANCE_DATA 的 textid 提示／載入動作與部分版本欄位），parity 補齊後把兩表加入 `closed_code_tables` 即自動封寫。13.1 的 `text_codes`（c_title 拼音欄）update 照舊（office_codes 先例）。
+- 回歸測試：`ApiV2MutateTextEntityTest`（create 派生與稽核、版本列對賬、成環護欄、刪除護欄含子文獻、別名 book）、`TextEntityIndexTest`（列表 parity、計算欄、側欄改指、「暫不封寫」決策釘住）、`ApiV2MutateCodeTableTextCodesTest` 改為固化裸表通道已封閉；`AdminBatchLoadBookTitlesTest` 全數維持通過（operations 快照的 `c_source` 由字串轉為整數是唯一語義差異）。`API.md` §4／§13 已同步。
+
 ### 新增 `KINREL_REDUCTION`（親屬關係化簡規則表）
 - 需求：把 CBDB 團隊維護的親屬關係化簡規則（來源試算表 `KINREL_REDUCTION.xlsx`，8 筆）落進資料庫，並接上全站既有的「代碼表」機制。規則語義是把複合親屬關係字串（`KINSHIP_CODES.c_kinrel`，如 `BB`＝兄弟之兄弟）逐步化簡到等價最簡關係（`B`），同時調整四個親屬距離步數；它是 `KINSHIP_CODES.c_kinrel_simplified` 的規則來源。
 - **Schema 沿用 CBDB 慣例而非 Laravel 預設**：全大寫表名、`c_` 前綴欄名、MySQL 端顯式指定 `utf8mb4_general_ci`（`config/database.php` 的預設是 `utf8mb4_unicode_ci`，但 CBDB 全庫是 general_ci，見 `2025_11_20_100000_alter_admin_cat_tables_collation`）、`ENGINE=InnoDB ROW_FORMAT=DYNAMIC`，與同族的 `KINSHIP_CODES`／`KIN_MOURNING`／`KIN_MOURNING_STEPS` 對齊。
